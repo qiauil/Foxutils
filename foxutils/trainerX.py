@@ -210,7 +210,7 @@ class Trainer():
         network.to(self.configs.device)
         self.logger.info("Training start!")
         p_bar=tqdm(range(self.start_epoch,self.configs.epochs+1))
-        self.event_before_training()
+        self.event_before_training(network)
         for idx_epoch in p_bar:
             train_losses_epoch=[]
             lr_now=self.optimizer.param_groups[0]["lr"]
@@ -223,11 +223,11 @@ class Trainer():
                 train_losses_epoch.append(loss.item())
                 if self.configs.record_iteration_loss:
                     self.recorder.add_scalar("Loss_iteration/train",train_losses_epoch[-1],(idx_epoch-1)*num_batches_train+idx_batch)
-                self.event_after_training_iteration(idx_epoch,idx_batch)
+                self.event_after_training_iteration(network,idx_epoch,idx_batch)
             train_losses_epoch_average=sum(train_losses_epoch)/len(train_losses_epoch)
             info_epoch+=" train loss:{:.5f}".format(train_losses_epoch_average)
             self.recorder.add_scalar("{}/train".format(loss_tag),train_losses_epoch_average,idx_epoch)
-            self.event_after_training_epoch(idx_epoch)
+            self.event_after_training_epoch(network,idx_epoch)
             if validation_dataset is not None and idx_epoch%self.configs.validation_epoch_frequency==0:
                 validation_losses_epoch=[]
                 network.eval()
@@ -237,11 +237,11 @@ class Trainer():
                         validation_losses_epoch.append(loss_validation.item())
                         if self.configs.record_iteration_loss:
                             self.recorder.add_scalar("Loss_iteration/validation",validation_losses_epoch[-1],(idx_epoch-1)*num_batches_validation+idx_batch)
-                        self.event_after_validation_iteration(idx_epoch,idx_batch)
+                        self.event_after_validation_iteration(network,idx_epoch,idx_batch)
                     validation_losses_epoch_average=sum(validation_losses_epoch)/len(validation_losses_epoch)
                     info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
                     self.recorder.add_scalar("{}/validation".format(loss_tag),validation_losses_epoch_average,idx_epoch)
-                    self.event_after_validation_epoch(idx_epoch)
+                    self.event_after_validation_epoch(network,idx_epoch)
             p_bar.set_description(info_epoch)
             self.lr_scheduler.step()
             if idx_epoch%self.configs.save_epoch==0:
@@ -252,7 +252,7 @@ class Trainer():
                     "lr_scheduler":self.lr_scheduler.state_dict()
                 }
                 torch.save(checkpoint_now,self.checkpoints_path+"checkpoint_{}.pt".format(idx_epoch))
-        self.event_after_training()
+        self.event_after_training(network)
         network.to("cpu")
         torch.save(network.state_dict(),self.project_path+"trained_network_weights.pt")
         self.logger.info("Training finished!")
@@ -410,22 +410,22 @@ class Trainer():
         loss.backward()
         optimizer.step()
 
-    def event_before_training(self):
+    def event_before_training(self,network):
         pass
     
-    def event_after_training(self):
+    def event_after_training(self,network):
         pass
     
-    def event_after_training_epoch(self,idx_epoch):
+    def event_after_training_epoch(self,network,idx_epoch):
         pass
     
-    def event_after_training_iteration(self,idx_epoch,idx_batch):
+    def event_after_training_iteration(self,network,idx_epoch,idx_batch):
         pass
     
-    def event_after_validation_epoch(self,idx_epoch):
+    def event_after_validation_epoch(self,network,idx_epoch):
         pass
     
-    def event_after_validation_iteration(self,idx_epoch,idx_batch):
+    def event_after_validation_iteration(self,network,idx_epoch,idx_batch):
         pass
 
 class TrainedProject():

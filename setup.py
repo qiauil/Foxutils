@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="foxutils",
-    version="0.0.26",
+    version="0.0.27",
     author="Qiauil",
     author_email="qiangliu.7@outlook.com",
     description="Utils for PyTorch based deep-learning study",
