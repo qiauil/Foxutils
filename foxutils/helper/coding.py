@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.3
-#last modified:20231020
+#version:0.0.6
+#last modified:20231207
 
 from inspect import isfunction
 import time,yaml
@@ -88,7 +88,7 @@ class ConfigurationsHandler():
             "default_value_func":default_value_func, #default_value_func must be a function with one parameter, which is the current configures
             "mandatory":mandatory,
             "description":description,
-            "type":value_type,
+            "value_type":value_type,
             "option":option,
             "in_func":in_func,
             "out_func":out_func,
@@ -96,13 +96,28 @@ class ConfigurationsHandler():
             "in_func_ran":False,
             "out_func_ran":False
         }
+    
+    def get_config_features(self,key):
+        if key not in self.__configs_feature.keys():
+            raise Exception("{} is not a supported configuration.".format(key))
+        return self.__configs_feature[key]
+    
+    def set_config_features(self,key,feature):
+        self.add_config_item(key,default_value=feature["default_value"],
+                             default_value_func=feature["default_value_func"],
+                             mandatory=feature["mandatory"],
+                             description=feature["description"],
+                             value_type=feature["value_type"],
+                             option=feature["option"],
+                             in_func=feature["in_func"],
+                             out_func=feature["out_func"])
 
     def set_config_items(self,**kwargs):
         for key in kwargs.keys():
             if key not in self.__configs_feature.keys():
                 raise Exception("{} is not a supported configuration.".format(key))
-            if self.__configs_feature[key]["type"] is not None and type(kwargs[key])!=self.__configs_feature[key]["type"]:
-                raise Exception("{} must be {}, but find {}.".format(key,self.__configs_feature[key]["type"],type(kwargs[key])))
+            if self.__configs_feature[key]["value_type"] is not None and type(kwargs[key])!=self.__configs_feature[key]["value_type"]:
+                raise Exception("{} must be {}, but find {}.".format(key,self.__configs_feature[key]["value_type"],type(kwargs[key])))
             if self.__configs_feature[key]["option"] is not None and kwargs[key] not in self.__configs_feature[key]["option"]:
                 raise Exception("{} must be one of {}, but find {}.".format(key,self.__configs_feature[key]["option"],kwargs[key]))
             self.__configs.set(key,kwargs[key])
@@ -167,8 +182,8 @@ class ConfigurationsHandler():
         for key in self.__configs_feature.keys():
             text="    "+str(key)
             texts=[]
-            if self.__configs_feature[key]["type"] is not None:
-                texts.append(str(self.__configs_feature[key]["type"].__name__))
+            if self.__configs_feature[key]["value_type"] is not None:
+                texts.append(str(self.__configs_feature[key]["value_type"].__name__))
             if self.__configs_feature[key]["option"] is not None:
                 texts.append("possible option: "+str(self.__configs_feature[key]["option"]))
             if self.__configs_feature[key]["default_value"] is not None:

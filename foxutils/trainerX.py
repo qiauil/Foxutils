@@ -277,27 +277,7 @@ class Trainer():
         path_config_file: str, path to the yaml file of the training configurations, default is ""
         kwargs: dict, the training configurations, default is {}, will overwrite the configurations in the yaml file.
         
-        Mandatory configurations for training:
-            name: str, name of the training, mandatory
-            save_path: str, path to save the training results, mandatory
-            batch_size_train: int, batch size for training, mandatory
-            epochs: int, number of epochs for training, mandatory
-            lr: float, initial learning rate, mandatory
-        Optional Configurations for training:
-            device: cpu or cuda, device for training, default is cpu
-            random_seed: None or int, random seed for training, default is None   
-            batch_size_validation: int, batch size for validation, default is the same as batch_size_train
-            shuffle_train: bool, whether to shuffle the training dataset, default is True
-            shuffle_validation: bool, whether to shuffle the validation dataset, default is the same as shuffle_train
-            num_workers_train: int, number of workers for training, default is 0
-            num_workers_validation: int, number of workers for validation, default is the same as num_workers_train
-            validation_epoch_frequency: int, frequency of validation, default is 1  
-            optimizer: str, optimizer for training, default is AdamW
-            lr_scheduler: str, learning rate scheduler for training, default is cosine   
-            final_lr: float, final learning rate, default is the same as lr
-            warmup_epoch: int, number of epochs for learning rate warm up, default is 0
-            record_iteration_loss: bool, whether to record iteration loss, default is False
-            save_epoch: int, frequency of saving checkpoints, default is 1/10 of epochs
+        Supported training configurations can be shown through show_configs() function,
         '''
         self.__train_from_checkpoint=False
         if path_config_file != "":
@@ -365,6 +345,9 @@ class Trainer():
     
     def event_after_validation_iteration(self,network,idx_epoch,idx_batch):
         pass
+
+    def show_configs(self):
+        self.configs_handler.show_config_options()
 
 class TrainedProject():
     
