@@ -1,6 +1,6 @@
 #usr/bin/python3
 
-#version:0.0.6
+#version:0.0.7
 #last modified:20231207
 
 from inspect import isfunction
@@ -176,7 +176,7 @@ class ConfigurationsHandler():
         with open(yaml_file,"w") as f:
             yaml.dump(output_dict,f)
     
-    def show_config_options(self):
+    def show_config_features(self):
         mandatory_configs=[]
         optional_configs=[]
         for key in self.__configs_feature.keys():
@@ -204,3 +204,6 @@ class ConfigurationsHandler():
         for key in optional_configs:
             print(key)
    
+    def show_config_items(self):
+        for key,value in self.configs().__dict__:
+            print("{}: {}".format(key,value))

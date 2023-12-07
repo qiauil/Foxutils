@@ -1,6 +1,6 @@
 # usr/bin/python3
 
-#version:0.0.6
+#version:0.0.7
 #last modified:20231107
 
 import os,torch,time,math,logging,yaml
@@ -70,7 +70,7 @@ class Trainer():
         
         return logger,recorder
 
-    def __get_optimizer(self,network):
+    def get_optimizer(self,network):
         if self.configs.optimizer=="AdamW":
             return torch.optim.AdamW(network.parameters(),lr=self.configs.lr)
         elif self.configs.optimizer=="Adam":
@@ -80,7 +80,7 @@ class Trainer():
         else:
             raise ValueError("Optimizer '{}' not supported".format(self.configs.optimizer))
 
-    def __get_lr_scheduler(self,optimizer):
+    def get_lr_scheduler(self,optimizer):
         if self.configs.lr_scheduler=="cosine":
             return torch.optim.lr_scheduler.LambdaLR(optimizer,get_cosine_lambda(initial_lr=self.configs.lr,final_lr=self.configs.final_lr,epochs=self.configs.epochs,warmup_epoch=self.configs.warmup_epoch))
         elif self.configs.lr_scheduler=="linear":
@@ -146,8 +146,8 @@ class Trainer():
             self.logger.info("Validation will be done every {} epochs".format(self.configs.validation_epoch_frequency))
             self.logger.info("Batch size for validation:{}".format(self.configs.batch_size_validation))
         # set optimizer and lr scheduler
-        self.optimizer = self.__get_optimizer(network)
-        self.lr_scheduler = self.__get_lr_scheduler(self.optimizer)
+        self.optimizer = self.get_optimizer(network)
+        self.lr_scheduler = self.get_lr_scheduler(self.optimizer)
         self.logger.info("learning rate:{}".format(self.configs.lr))
         self.logger.info("Optimizer:{}".format(self.configs.optimizer))
         self.logger.info("Learning rate scheduler:{}".format(self.configs.lr_scheduler))
@@ -269,7 +269,7 @@ class Trainer():
         loss=torch.nn.functional.mse_loss(predictions,targets)
         return loss
 
-    def train_from_scratch(self,network,train_dataset,validation_dataset,path_config_file:str="",**kwargs):
+    def train_from_scratch(self,network,train_dataset,validation_dataset=None,path_config_file:str="",**kwargs):
         '''
         network: torch.nn.Module, the network to be trained, mandatory
         train_dataset: torch.utils.data.Dataset, the training dataset, mandatory
@@ -286,7 +286,7 @@ class Trainer():
         self.configs=self.configs_handler.configs()
         self.__train(network,train_dataset,validation_dataset)
 
-    def train_from_checkpoint(self,project_path,train_dataset,validation_dataset,restart_epoch=None):
+    def train_from_checkpoint(self,project_path,train_dataset,validation_dataset=None,restart_epoch=None):
         '''
         project_path: str, path to the project folder, mandatory
         train_dataset: torch.utils.data.Dataset, the training dataset, mandatory
@@ -346,8 +346,11 @@ class Trainer():
     def event_after_validation_iteration(self,network,idx_epoch,idx_batch):
         pass
 
-    def show_configs(self):
-        self.configs_handler.show_config_options()
+    def show_config_options(self):
+        self.configs_handler.show_config_features()
+    
+    def show_current_configs(self):
+        self.configs_handler.show_config_items()
 
 class TrainedProject():
     
@@ -374,7 +377,7 @@ class TrainedProject():
                 configs_dict=yaml.safe_load(f)
             return configs_dict
     
-    def get_network_strcuture(self,only_path=False):
+    def get_network_structure(self,only_path=False):
         if not os.path.exists(self.project_path+"network_structure.pt"):
             raise FileNotFoundError("No network_structure.pt found in {}".format(self.project_path))
         if only_path:
