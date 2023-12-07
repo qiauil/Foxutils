@@ -1,6 +1,6 @@
 # usr/bin/python3
 
-#version:0.0.4
+#version:0.0.6
 #last modified:20231107
 
 import os,torch,time,math,logging,yaml

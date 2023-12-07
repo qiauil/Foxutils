@@ -1,6 +1,6 @@
 #usr/bin/python3
 
-#version:0.0.2
+#version:0.0.3
 #last modified:20231020
 
 from inspect import isfunction
