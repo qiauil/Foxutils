@@ -43,7 +43,7 @@ class Trainer():
     
     def __init__(self) -> None:
         self.set_configs_type()
-        self.__train_from_checkpoint=False
+        self._train_from_checkpoint=False
         self.configs=None
         self.project_path=""
         self.logger=None
@@ -101,7 +101,7 @@ class Trainer():
         dataloader_genrator.manual_seed(self.configs.random_seed)
         # create project folder
         time_label = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time()))
-        if not self.__train_from_checkpoint:
+        if not self._train_from_checkpoint:
             self.project_path=self.configs.save_path+self.configs.name+os.sep+time_label+os.sep
             os.makedirs(self.project_path, exist_ok=True)
         self.records_path=self.project_path+"records"+os.sep
@@ -110,12 +110,12 @@ class Trainer():
         #get logger and recorder
         self.logger,self.recorder=self.__get_logger_recorder()
         self.logger.info("Trainer created at {}".format(time_label))
-        if self.__train_from_checkpoint:
+        if self._train_from_checkpoint:
             self.logger.info("Training from checkpoint, checkpoint epoch:{}".format(self.start_epoch))
         self.logger.info("Working path:{}".format(self.project_path))
         self.logger.info("Random seed: {}".format(self.configs.random_seed))      
         # save configs if not train from checkpoint
-        if not self.__train_from_checkpoint:
+        if not self._train_from_checkpoint:
             self.configs_handler.save_config_items_to_yaml(self.project_path+"configs.yaml")
         self.logger.info("Training configurations saved to {}".format(self.project_path+"configs.yaml"))
         # show model paras and save model structure
@@ -153,7 +153,7 @@ class Trainer():
         self.logger.info("Learning rate scheduler:{}".format(self.configs.lr_scheduler))
         if self.configs.warmup_epoch!=0:
             self.logger.info("Use learning rate warm up, warmup epoch:{}".format(self.configs.warmup_epoch))
-        if self.__train_from_checkpoint:
+        if self._train_from_checkpoint:
             checkpoint_file_path=self.checkpoints_path+"checkpoint_{}.pt".format(self.start_epoch-1)
             self.logger.info("Loading checkpoint from {}".format(checkpoint_file_path))
             checkpoint=torch.load(checkpoint_file_path)
@@ -279,7 +279,7 @@ class Trainer():
         
         Supported training configurations can be shown through show_configs() function,
         '''
-        self.__train_from_checkpoint=False
+        self._train_from_checkpoint=False
         if path_config_file != "":
             self.configs_handler.set_config_items_from_yaml(path_config_file)
         self.configs_handler.set_config_items(**kwargs)
@@ -293,7 +293,7 @@ class Trainer():
         validation_dataset: torch.utils.data.Dataset, the validation dataset, default is None. If None, no validation will be done.
         restart_epoch: int, the epoch to restart training, default is None, which means the latest checkpoint will be used.
         '''
-        self.__train_from_checkpoint=True
+        self._train_from_checkpoint=True
         self.project_path=project_path
         # get checkpoint epoch
         if self.project_path[-1]!=os.sep:

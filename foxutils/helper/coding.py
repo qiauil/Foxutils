@@ -1,6 +1,6 @@
 #usr/bin/python3
 
-#version:0.0.7
+#version:0.0.8
 #last modified:20231207
 
 from inspect import isfunction
@@ -205,5 +205,5 @@ class ConfigurationsHandler():
             print(key)
    
     def show_config_items(self):
-        for key,value in self.configs().__dict__:
+        for key,value in self.configs().__dict__.items():
             print("{}: {}".format(key,value))
