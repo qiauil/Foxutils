@@ -1,14 +1,15 @@
 #usr/bin/python3
 
-#version:0.0.1
-#last modified:20230803
+#version:0.0.2
+#last modified:20231208
 
 from . import *
 
-mlp.rcParams['text.latex.preamble']=r"\usepackage{amsmath}"
-mlp.rcParams['font.sans-serif'] = ['Times New Roman', 'sans-serif']
-mlp.rcParams['font.size'] = 20
-mlp.rcParams['text.usetex'] =True
+def enable_print_style():
+    mlp.rcParams['text.latex.preamble']=r"\usepackage{amsmath}"
+    mlp.rcParams['font.sans-serif'] = ['Times New Roman', 'sans-serif']
+    mlp.rcParams['font.size'] = 20
+    mlp.rcParams['text.usetex'] =True
 
 
 COOL=mlp.cm.get_cmap("coolwarm")(np.linspace(0, 0.5, 5))
