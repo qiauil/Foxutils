@@ -1,6 +1,6 @@
 
 
-![](pics\logo.png)
+![](pics/logo.png)
 
 <center>Utils for PyTorch-based deep-learning study </center>
 
