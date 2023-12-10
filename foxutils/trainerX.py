@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.7
-#last modified:20231107
+#version:0.0.8
+#last modified:20231210
 
 import os,torch,time,math,logging,yaml
 import torch.nn as nn
@@ -16,6 +16,18 @@ from tqdm import tqdm
 
 #NOTE: the range of the lambda output should be [0,1]                   
 def get_cosine_lambda(initial_lr,final_lr,epochs,warmup_epoch):
+    """
+    Returns a lambda function that calculates the learning rate based on the cosine schedule.
+
+    Args:
+        initial_lr (float): The initial learning rate.
+        final_lr (float): The final learning rate.
+        epochs (int): The total number of epochs.
+        warmup_epoch (int): The number of warm-up epochs.
+
+    Returns:
+        function: The lambda function that calculates the learning rate.
+    """
     def cosine_lambda(idx_epoch):
         if idx_epoch < warmup_epoch:
             return idx_epoch / warmup_epoch
@@ -24,6 +36,18 @@ def get_cosine_lambda(initial_lr,final_lr,epochs,warmup_epoch):
     return cosine_lambda
     
 def get_linear_lambda(initial_lr,final_lr,epochs,warmup_epoch):
+    """
+    Returns a lambda function that calculates the learning rate based on the linear schedule.
+
+    Args:
+        initial_lr (float): The initial learning rate.
+        final_lr (float): The final learning rate.
+        epochs (int): The total number of epochs.
+        warmup_epoch (int): The number of warm-up epochs.
+
+    Returns:
+        function: The lambda function that calculates the learning rate.
+    """
     def linear_lambda(idx_epoch):
         if idx_epoch < warmup_epoch:
             return idx_epoch / warmup_epoch
@@ -32,6 +56,18 @@ def get_linear_lambda(initial_lr,final_lr,epochs,warmup_epoch):
     return linear_lambda
 
 def get_constant_lambda(initial_lr,final_lr,epochs,warmup_epoch):
+    """
+    Returns a lambda function that calculates the learning rate based on the constant schedule.
+
+    Args:
+        initial_lr (float): Just a placeholder, no actual use.
+        final_lr (float): Just a placeholder, no actual use.
+        epochs (int): Just a placeholder, no actual use.
+        warmup_epoch (int): The number of warm-up epochs.
+
+    Returns:
+        function: The lambda function that calculates the learning rate.
+    """
     def constant_lambda(idx_epoch):
         if idx_epoch < warmup_epoch:
             return idx_epoch / warmup_epoch
@@ -40,6 +76,39 @@ def get_constant_lambda(initial_lr,final_lr,epochs,warmup_epoch):
     return constant_lambda
 
 class Trainer():
+    """
+    A class that handles the training process.
+
+    Attributes:
+        set_configs_type: Set the type of configurations.
+        configs: The configurations for training.
+        project_path: The path to the project folder.
+        logger: The logger for logging training events.
+        recorder: The recorder for recording training progress.
+        train_dataloader: The dataloader for training data.
+        validate_dataloader: The dataloader for validation data.
+        start_epoch: The starting epoch for training.
+        optimizer: The optimizer for updating model parameters.
+        lr_scheduler: The learning rate scheduler.
+
+    Methods:
+        train_from_scratch: Train the network from scratch.
+        train_from_checkpoint: Train the network from a checkpoint.
+        show_config_options: Show the options of training configurations.
+        show_current_configs: Show the current training configurations.
+        get_optimizer: Get the optimizer based on the configuration. Recommend to override this methon.
+        get_lr_scheduler: Get the learning rate scheduler based on the configuration. Recommend to override this methon.
+        set_configs_type: Set the type of configurations. Recommend to override this methon. Recommend to override this methon.
+        train_step: The training step. Highly recommend to override this methon.
+        validation_step: The validation step. Highly recommend to override this methon.
+        back_propagate: Back propagate the loss to update the model parameters. Recommend to override this methon.
+        event_before_training: Event before training. Recommend to override this methon.
+        event_after_training: Event after training. Recommend to override this methon.
+        event_after_training_epoch: Event after training an epoch. Recommend to override this methon.
+        event_after_training_iteration: Event after training an iteration. Recommend to override this methon.
+        event_after_validation_epoch: Event after validating an epoch. Recommend to override this methon.
+        event_after_validation_iteration: Event after validating an iteration. Recommend to override this methon.
+    """
     
     def __init__(self) -> None:
         self.set_configs_type()
@@ -55,6 +124,13 @@ class Trainer():
         self.lr_scheduler=None
 
     def __get_logger_recorder(self):
+        """
+        Get the logger and recorder for logging and recording training progress.
+
+        Returns:
+            logger: The logger for logging training events.
+            recorder: The recorder for recording training progress.
+        """
         logger=logging.getLogger("logger_{}".format(self.configs.name))
         logger.setLevel(logging.INFO)
         logger.handlers = []
@@ -71,6 +147,20 @@ class Trainer():
         return logger,recorder
 
     def get_optimizer(self,network):
+        """
+        Get the optimizer based on the configuration. 
+        Recommend to override this methon. 
+        When overriding this method, you do not need to call the parent method.
+
+        Args:
+            network (torch.nn.Module): The network to be optimized.
+
+        Returns:
+            torch.optim.Optimizer: The optimizer.
+        
+        Raises:
+            ValueError: If the optimizer is not supported.
+        """
         if self.configs.optimizer=="AdamW":
             return torch.optim.AdamW(network.parameters(),lr=self.configs.lr)
         elif self.configs.optimizer=="Adam":
@@ -81,6 +171,18 @@ class Trainer():
             raise ValueError("Optimizer '{}' not supported".format(self.configs.optimizer))
 
     def get_lr_scheduler(self,optimizer):
+        """
+        Get the learning rate scheduler based on the configuration.
+
+        Args:
+            optimizer (torch.optim.Optimizer): The optimizer.
+
+        Returns:
+            torch.optim.lr_scheduler._LRScheduler: The learning rate scheduler.
+        
+        Raises:
+            ValueError: If the learning rate scheduler is not supported.
+        """
         if self.configs.lr_scheduler=="cosine":
             return torch.optim.lr_scheduler.LambdaLR(optimizer,get_cosine_lambda(initial_lr=self.configs.lr,final_lr=self.configs.final_lr,epochs=self.configs.epochs,warmup_epoch=self.configs.warmup_epoch))
         elif self.configs.lr_scheduler=="linear":
@@ -91,6 +193,14 @@ class Trainer():
             raise ValueError("Learning rate scheduler '{}' not supported".format(self.configs.lr_scheduler))
 
     def __train(self,network:torch.nn.Module,train_dataset,validation_dataset=None):
+        """
+        The main training loop.
+
+        Args:
+            network (torch.nn.Module): The network to be trained.
+            train_dataset: The dataset for training.
+            validation_dataset: The dataset for validation (optional).
+        """
         #set random seed  
         torch.manual_seed(self.configs.random_seed)
         def seed_worker(worker_id):
@@ -216,6 +326,18 @@ class Trainer():
         self.logger.info("Training finished!")
 
     def set_configs_type(self):
+        '''
+        Set the type of configurations. Supported training configurations can be shown through show_configs() function,
+        Recommend to override this methon.
+        When overriding this method, you must to call the parent method.
+
+        e.g.
+        ```
+        super().set_configs_type()
+        self.configs_handler.add_config_item("training os",value_type=str,mandatory=True,description="Name of the training os.")
+        ```
+
+        '''
         self.configs_handler=ConfigurationsHandler()
         self.configs_handler.add_config_item("name",value_type=str,mandatory=True,description="Name of the training.")
         self.configs_handler.add_config_item("save_path",value_type=str,mandatory=True,description="Path to save the training results.")
@@ -239,13 +361,22 @@ class Trainer():
 
     def train_step(self,network:torch.nn.Module,batched_data,idx_batch:int,num_batches:int,idx_epoch:int,num_epoch:int):
         '''
+        Train the network for one step.
+        It is highly to recommend to override this methon when developing a new trainer.
+        When overriding this method, you don't need to call the parent method.
+        Gradient will be automatically calculated in this operation.
+        Note that you need to move the 'batched_data' to the device first when overriding this method.
+
         Args:
             network: torch.nn.Module, the network to be trained
-            batched_data: torch.Tensor or tuple of torch.Tensor, the data for training, need to be moved to the device first!
+            batched_data: torch.Tensor or tuple of torch.Tensor, the data for training.
             idx_batch: int, index of the current batch
             num_batches: int, total number of batches
             idx_epoch: int, index of the current epoch
             num_epoch: int, total number of epochs
+
+        Returns:
+            torch.Tensor: The loss of the current step.
         '''
         inputs=batched_data[0].to(self.configs.device)
         targets=batched_data[1].to(self.configs.device)
@@ -255,6 +386,12 @@ class Trainer():
     
     def validation_step(self,network:torch.nn.Module,batched_data,idx_batch:int,num_batches:int,idx_epoch:int,num_epoch:int):
         '''
+        Validate the network for one step.
+        It is highly to recommend to override this methon when developing a new trainer.
+        When overriding this method, you don't need to call the parent method.
+        All the operation here is gradient free.
+        Note that you need to move the 'batched_data' to the device first when overriding this method.
+
         Args:
             network: torch.nn.Module, the network to be trained
             batched_data: torch.Tensor or tuple of torch.Tensor, the data for validation,need to be moved to the device first!
@@ -262,6 +399,9 @@ class Trainer():
             num_batches: int, total number of batches
             idx_epoch: int, index of the current epoch
             num_epoch: int, total number of epochs
+        
+        Returns:
+            torch.Tensor: The validation loss of the current step.
         '''
         inputs=batched_data[0].to(self.configs.device)
         targets=batched_data[1].to(self.configs.device)
@@ -271,13 +411,14 @@ class Trainer():
 
     def train_from_scratch(self,network,train_dataset,validation_dataset=None,path_config_file:str="",**kwargs):
         '''
-        network: torch.nn.Module, the network to be trained, mandatory
-        train_dataset: torch.utils.data.Dataset, the training dataset, mandatory
-        validation_dataset: torch.utils.data.Dataset, the validation dataset, default is None. If None, no validation will be done.
-        path_config_file: str, path to the yaml file of the training configurations, default is ""
-        kwargs: dict, the training configurations, default is {}, will overwrite the configurations in the yaml file.
-        
-        Supported training configurations can be shown through show_configs() function,
+        Train the network from scratch. Supported training configurations can be shown through show_configs() function.
+
+        Args:
+            network: torch.nn.Module, the network to be trained, mandatory
+            train_dataset: torch.utils.data.Dataset, the training dataset, mandatory
+            validation_dataset: torch.utils.data.Dataset, the validation dataset, default is None. If None, no validation will be done.
+            path_config_file: str, path to the yaml file of the training configurations, default is ""
+            kwargs: dict, the training configurations, default is {}, will overwrite the configurations in the yaml file.
         '''
         self._train_from_checkpoint=False
         if path_config_file != "":
@@ -288,10 +429,14 @@ class Trainer():
 
     def train_from_checkpoint(self,project_path,train_dataset,validation_dataset=None,restart_epoch=None):
         '''
-        project_path: str, path to the project folder, mandatory
-        train_dataset: torch.utils.data.Dataset, the training dataset, mandatory
-        validation_dataset: torch.utils.data.Dataset, the validation dataset, default is None. If None, no validation will be done.
-        restart_epoch: int, the epoch to restart training, default is None, which means the latest checkpoint will be used.
+        Train the network from a checkpoint. The checkpoint should be in the project folder.
+        Supported training configurations can be shown through show_configs() function.
+
+        Args:
+            project_path: str, path to the project folder, mandatory
+            train_dataset: torch.utils.data.Dataset, the training dataset, mandatory
+            validation_dataset: torch.utils.data.Dataset, the validation dataset, default is None. If None, no validation will be done.
+            restart_epoch: int, the epoch to restart training, default is None, which means the latest checkpoint will be used.
         '''
         self._train_from_checkpoint=True
         self.project_path=project_path
@@ -324,35 +469,123 @@ class Trainer():
         self.__train(network,train_dataset,validation_dataset)
 
     def back_propagate(self,loss:torch.Tensor,optimizer:torch.optim.Optimizer):
+        '''
+        Back propagate the loss to update the model parameters.
+
+        Args:
+            loss: torch.Tensor, the loss to be back propagated.
+            optimizer: torch.optim.Optimizer, the optimizer for updating model parameters.
+        '''
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
     def event_before_training(self,network):
+        '''
+        Event before training. Will do nothing by default.
+        Recommend to override this methon.
+        When overriding this method, you don't need to call the parent method.
+
+        Args:
+            network: torch.nn.Module, the network to be trained.
+        
+        '''
         pass
     
     def event_after_training(self,network):
+        '''
+        Event after training. Will do nothing by default.
+        Recommend to override this methon.
+        When overriding this method, you don't need to call the parent method.
+        
+        Args:
+            network: torch.nn.Module, the network to be trained.
+        
+        '''
         pass
     
     def event_after_training_epoch(self,network,idx_epoch):
+        '''
+        Event after training an epoch. Will do nothing by default.
+        Recommend to override this methon.
+        When overriding this method, you don't need to call the parent method.
+
+        Args:
+            network: torch.nn.Module, the network to be trained.
+            idx_epoch: int, index of the current epoch.
+        
+        '''
         pass
     
     def event_after_training_iteration(self,network,idx_epoch,idx_batch):
+        '''
+        Event after training an iteration. Will do nothing by default.
+        Recommend to override this methon.
+        When overriding this method, you don't need to call the parent method.
+
+        Args:
+            network: torch.nn.Module, the network to be trained.
+            idx_epoch: int, index of the current epoch.
+            idx_batch: int, index of the current batch.
+        
+        '''
         pass
     
     def event_after_validation_epoch(self,network,idx_epoch):
+        '''
+        Event after validating an epoch. Will do nothing by default.
+        Recommend to override this methon.
+        When overriding this method, you don't need to call the parent method.
+
+        Args:
+            network: torch.nn.Module, the network to be trained.
+            idx_epoch: int, index of the current epoch.
+        
+        '''
         pass
     
     def event_after_validation_iteration(self,network,idx_epoch,idx_batch):
+        '''
+        Event after validating an iteration. Will do nothing by default.
+        Recommend to override this methon.
+        When overriding this method, you don't need to call the parent method.
+
+        Args:
+            network: torch.nn.Module, the network to be trained.
+            idx_epoch: int, index of the current epoch.
+            idx_batch: int, index of the current batch.
+
+        '''
         pass
 
     def show_config_options(self):
+        '''
+        Show the options of training configurations.
+        '''
         self.configs_handler.show_config_features()
     
     def show_current_configs(self):
+        '''
+        Show the current training configurations.
+        '''
         self.configs_handler.show_config_items()
 
 class TrainedProject():
+    '''
+    A class that handles the project trained by a 'Trainner'.
+
+    Attributes:
+        project_path: The path to the project folder.
+    
+    Methods:
+        get_configs: Get the training configurations.
+        get_network_structure: Get the network structure.
+        get_trained_network_weights: Get the trained network weights.
+        get_checkpoints: Get the checkpoints.
+        get_records: Get the records.
+        get_saved_network: Get the saved network.
+    '''
     
     def __init__(self,project_path) -> None:
         if project_path[-1]!=os.sep:
@@ -368,6 +601,15 @@ class TrainedProject():
         self.project_path=project_path
     
     def get_configs(self,only_path=False):
+        '''
+        Get the training configurations.
+
+        Args:
+            only_path: bool, whether only to return the path of the configs.yaml file, default is False.
+        
+        Returns:
+            dict or str: The configurations or the path of the configs.yaml file.
+        '''
         if not os.path.exists(self.project_path+"configs.yaml"):
             raise FileNotFoundError("No configs.yaml found in {}".format(self.project_path))
         if only_path:
@@ -378,6 +620,15 @@ class TrainedProject():
             return configs_dict
     
     def get_network_structure(self,only_path=False):
+        '''
+        Get the network structure.
+
+        Args:
+            only_path: bool, whether only to return the path of the network_structure.pt file, default is False.
+
+        Returns:
+            torch.nn.Module or str: The network structure or the path of the network_structure.pt file.
+        '''
         if not os.path.exists(self.project_path+"network_structure.pt"):
             raise FileNotFoundError("No network_structure.pt found in {}".format(self.project_path))
         if only_path:
@@ -386,6 +637,15 @@ class TrainedProject():
             return torch.load(self.project_path+"network_structure.pt")
     
     def get_trained_network_weights(self,only_path=False):
+        '''
+        Get the trained network weights.
+
+        Args:
+            only_path: bool, whether only to return the path of the trained_network_weights.pt file, default is False.
+        
+        Returns:
+            torch.nn.Module or str: The trained network weights or the path of the trained_network_weights.pt file.
+        '''
         if not os.path.exists(self.project_path+"trained_network_weights.pt"):
             raise FileNotFoundError("No trained_network_weights.pt found in {}".format(self.project_path))
         if only_path:
@@ -393,7 +653,17 @@ class TrainedProject():
         else:
             return torch.load(self.project_path+"trained_network_weights.pt")
     
-    def get_checkpoints(self,only_path=False,check_point=None):
+    def get_checkpoints(self,check_point=None,only_path=False):
+        '''
+        Get the checkpoints.
+
+        Args:
+            check_point: int, the checkpoint epoch, default is None, which means the latest checkpoint will be used.
+            only_path: bool, whether only to return the path of the checkpoints, default is False.
+
+        Returns:
+            dict or str: The checkpoints or the path of the checkpoints.
+        '''
         if check_point is not None:
             if not os.path.exists(self.project_path+"checkpoints"+os.sep+"checkpoint_{}.pt".format(check_point)):
                 check_points_names=[case.split("_")[1].split(".")[0] for case in os.listdir(self.project_path+"checkpoints")]
@@ -412,6 +682,15 @@ class TrainedProject():
             return torch.load(check_point_path)
     
     def get_records(self,only_path=False):
+        '''
+        Get the records.
+
+        Args:
+            only_path: bool, whether only to return the path of the records, default is False.
+        
+        Returns:
+            str: The records or the path of the records(Tensorboard EventAccumulator).
+        '''
         records=os.listdir(self.project_path+"records"+os.sep)
         if len(records)==0:
             raise FileNotFoundError("No records found in {}".format(self.project_path+"records"+os.sep))
@@ -423,7 +702,16 @@ class TrainedProject():
             ea.Reload()
             return ea
     
-    def get_saved_net(self,check_point=None):
+    def get_saved_network(self,check_point=None):
+        '''
+        Get the saved network with trained weights.
+
+        Args:
+            check_point: int, the checkpoint epoch, default is None, which means the latest checkpoint will be used.
+        
+        Returns:
+            torch.nn.Module: The saved network.
+        '''
         network=self.get_network_strcuture(only_path=False)
         if check_point is not None:
             weights=self.get_checkpoints(check_point=check_point)["network"]
@@ -436,22 +724,32 @@ class TrainedProject():
         network.load_state_dict(weights)
         return network
 
-def read_configs(path_config_file:str=""):
+def read_configs(path_config_file):
     '''
     Read the training configurations from a yaml file.
     
     Args:
-        path_config_file: str, path to the yaml file of the training configurations, default is ""
+        path_config_file: str, path to the yaml file of the training configurations.
+    
+    Returns:
+        dict: The training configurations.
     '''
-    if path_config_file != "":
-        with open(path_config_file,"r") as f:
-            yaml_configs=yaml.safe_load(f)
-        return yaml_configs
-    else:
-        return None
+    with open(path_config_file,"r") as f:
+        yaml_configs=yaml.safe_load(f)
+    return yaml_configs
 
-def get_saved_net(project_path,check_point=None):
-    return TrainedProject(project_path).get_saved_net(check_point=check_point)
+def get_saved_network(project_path,check_point=None):
+    '''
+    Get the saved network with trained weights.
+
+    Args:
+        project_path: str, path to the project folder, mandatory
+        check_point: int, the checkpoint epoch, default is None, which means the latest checkpoint will be used.
+    
+    Returns:
+        torch.nn.Module: The saved network.
+    '''
+    return TrainedProject(project_path).get_saved_network(check_point=check_point)
     '''
     if project_path[-1]!=os.sep:
         project_path+=os.sep
@@ -478,5 +776,3 @@ def get_saved_net(project_path,check_point=None):
     network.load_state_dict(network_weights)
     return network
     '''
-
-

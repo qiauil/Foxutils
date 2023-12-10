@@ -1,16 +1,29 @@
 #usr/bin/python3
 
-#version:0.0.11
-#last modified:20230804
+#version:0.0.12
+#last modified:20231210
 
 from . import *
 from .style import *
-import collections
+import collections.abc as collections
 import torch
 from mpl_toolkits.axes_grid1 import ImageGrid
 from ..helper.coding import *
 
 def sym_colormap(d_min,d_max,d_cen=0,cmap="coolwarm",cmapname="sym_map"):
+    '''
+    Generate a symmetric colormap.
+
+    Args:
+        d_min (float): The minimum value of the colormap.
+        d_max (float): The maximum value of the colormap.
+        d_cen (float, optional): The center value of the colormap. Defaults to 0.
+        cmap (str, optional): The colormap to use. Defaults to "coolwarm".
+        cmapname (str, optional): The name of the colormap. Defaults to "sym_map".
+
+    Returns:
+        matplotlib.colors.LinearSegmentedColormap: The generated colormap.
+    '''
     if abs(d_max-d_cen)>abs(d_min-d_cen):
         max_v=1
         low_v=0.5-(d_cen-d_min)/(d_max-d_cen)*0.5
@@ -22,6 +35,19 @@ def sym_colormap(d_min,d_max,d_cen=0,cmap="coolwarm",cmapname="sym_map"):
     return colors.LinearSegmentedColormap.from_list(cmapname,cmap(np.linspace(low_v, max_v, 100)))
 
 def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=None,ylist=None):
+    '''
+    Plot a 3D surface.
+
+    Args:
+        z (torch.Tensor): The input tensor.
+        ztitle (str, optional): The title of the z-axis. Defaults to "z".
+        xtitle (str, optional): The title of the x-axis. Defaults to "x".
+        ytitle (str, optional): The title of the y-axis. Defaults to "y".
+        cmap (str, optional): The colormap to use. Defaults to 'viridis'.
+        plot2D (bool, optional): Whether to plot a 2D figure. Defaults to False.
+        xlist (list, optional): The list of x-axis values. Defaults to None.
+        ylist (list, optional): The list of y-axis values. Defaults to None.
+    '''
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"},figsize=(6, 6))
     delta=1
     if xlist is None:
@@ -53,6 +79,18 @@ def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=
 
 
 def plot2D(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None,inverse_y=True):
+    '''
+    Generate a 2D plot using matplotlib.imshow().
+
+    Args:
+        field (torch.Tensor): The input tensor.
+        xtitle (str, optional): The title of the x-axis. Defaults to "j".
+        ytitle (str, optional): The title of the y-axis. Defaults to "i".
+        cmap (str, optional): The colormap to use. Defaults to 'viridis'.
+        xlist (list, optional): The list of x-axis values. Defaults to None.
+        ylist (list, optional): The list of y-axis values. Defaults to None.
+        inverse_y (bool, optional): Whether to invert the y-axis. Defaults to True.
+    '''
     delta=1
     if xlist is None:
         xlen=field.shape[0]
@@ -78,6 +116,20 @@ def plot2D(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None,inve
     ax.set_ylabel(ytitle)
     
 def plot2DX(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None,vmin=None,vmax=None,colorbar=True):
+    '''
+    Generate a 2D plot using matplotlib.pcolormesh().
+    
+    Args:
+        field (torch.Tensor): The input tensor.
+        xtitle (str, optional): The title of the x-axis. Defaults to "j".
+        ytitle (str, optional): The title of the y-axis. Defaults to "i".
+        cmap (str, optional): The colormap to use. Defaults to 'viridis'.
+        xlist (list, optional): The list of x-axis values. Defaults to None.
+        ylist (list, optional): The list of y-axis values. Defaults to None.
+        vmin (float, optional): The minimum value of the colormap. Defaults to None.
+        vmax (float, optional): The maximum value of the colormap. Defaults to None.
+        colorbar (bool, optional): Whether to show the colorbar. Defaults to True.
+    '''
     delta=1
     if xlist is None:
         xlen=field.shape[0]
@@ -106,6 +158,13 @@ def plot2DX(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None,vmi
     fig.set_figwidth(len(x)*0.3)
 
 def show_image_from_tensor(image_tensor,title=""):
+    '''
+    Show an image from a tensor.
+
+    Args:
+        image_tensor (torch.Tensor): The input tensor. The shape of the tensor should be (3, height, width).
+        title (str, optional): The title of the image. Defaults to "".
+    '''
     if len(image_tensor.shape)>3:
         if image_tensor.shape[0]==1:
             image_tensor=image_tensor.squeeze(dim=0)
@@ -121,145 +180,212 @@ def show_image_from_tensor(image_tensor,title=""):
     plt.axis('off')
 
 class ChannelPloter():
+    """
+    A class for plotting channel fields.
+
+    Methods:
+    - fig_save_path(self, path): Sets the figure save path.
+    - plot(self, fields, channel_names, channel_units, case_names, title, transpose, inverse_y, cmap, mask, size_subfig, xspace, yspace, cbar_pad, title_position, redraw_ticks, num_colorbar_value, minvs, maxvs, tick_format, data_scale, rotate_colorbar_with_oneinput, subfigure_index, save_name, use_sym_colormap): Plots the fields.
+    """
     
     def __init__(self) -> None:
         self.__fig_save_path="./output_figs/"
 
-    def __type_transform(self,fields):
-        if isinstance(fields,collections.Sequence):
-            if isinstance(fields[0],torch.Tensor):
-                fields=[(field.to(torch.device("cpu"))).numpy() for field in fields]
+    def __type_transform(self, fields):
+        """
+        Transforms the input fields to the desired type.
+
+        Args:
+        - fields: The input fields.
+
+        Returns:
+        - The transformed fields.
+        """
+        if isinstance(fields, collections.Sequence):
+            if isinstance(fields[0], torch.Tensor):
+                fields = [(field.to(torch.device("cpu"))).numpy() for field in fields]
                 return fields
-            elif isinstance(fields[0],np.ndarray):
+            elif isinstance(fields[0], np.ndarray):
                 return fields
             else:
                 raise Exception("Wrong input type!")
         else:
-            if isinstance(fields,torch.Tensor):
-                fields=(fields.to(torch.device("cpu"))).numpy()
+            if isinstance(fields, torch.Tensor):
+                fields = (fields.to(torch.device("cpu"))).numpy()
                 return fields
-            elif isinstance(fields,np.ndarray):
+            elif isinstance(fields, np.ndarray):
                 return fields
             else:
                 raise Exception("Wrong input type!")       
         
-    def __cat_fields(self,fields):
-        if isinstance(fields,collections.Sequence):
-            if len(fields[0].shape)==4:
-                return np.concatenate(fields,0)
+    def __cat_fields(self, fields):
+        """
+        Concatenates the fields into a single array.
+
+        Args:
+        - fields: The input fields.
+
+        Returns:
+        - The concatenated fields.
+        """
+        if isinstance(fields, collections.Sequence):
+            if len(fields[0].shape) == 4:
+                return np.concatenate(fields, 0)
             elif len(fields[0].shape) == 3:
-                return np.concatenate([np.expand_dims(field,0) for field in fields],0)
+                return np.concatenate([np.expand_dims(field, 0) for field in fields], 0)
             elif len(fields[0].shape) == 2:
-                return np.concatenate([np.expand_dims(np.expand_dims(field,0),0) for field in fields],0)
+                return np.concatenate([np.expand_dims(np.expand_dims(field, 0), 0) for field in fields], 0)
             else:
                 raise Exception("Wrong input type!")
         else:
-            if len(fields.shape) ==2:
-                return np.expand_dims(np.expand_dims(fields,0),0)
-            if len(fields.shape)==3:
-                return np.expand_dims(fields,0)
-            elif len(fields.shape)==4:
+            if len(fields.shape) == 2:
+                return np.expand_dims(np.expand_dims(fields, 0), 0)
+            if len(fields.shape) == 3:
+                return np.expand_dims(fields, 0)
+            elif len(fields.shape) == 4:
                 return fields
             else:
                 raise Exception("Wrong input type!")
 
-    def __find_min_max(self,fields,defaultmin,defaultmax):
-        mins=[]
-        maxs=[]
+    def __find_min_max(self, fields, defaultmin, defaultmax):
+        """
+        Finds the minimum and maximum values for each field.
+
+        Args:
+        - fields: The input fields.
+        - defaultmin: The default minimum values.
+        - defaultmax: The default maximum values.
+
+        Returns:
+        - The minimum and maximum values for each field.
+        """
+        mins = []
+        maxs = []
         for i in range(fields.shape[1]):
             if defaultmin is not None:
                 if defaultmin[i] is not None:
                     mins.append(defaultmin[i])
                 else:
-                    mins.append(np.min(fields[:,i,:,:]))
+                    mins.append(np.min(fields[:, i, :, :]))
             else:
-                mins.append(np.min(fields[:,i,:,:]))
+                mins.append(np.min(fields[:, i, :, :]))
             if defaultmax is not None:
                 if defaultmax[i] is not None:
                     maxs.append(defaultmax[i])
                 else:
-                    maxs.append(np.max(fields[:,i,:,:]))
+                    maxs.append(np.max(fields[:, i, :, :]))
             else:
-                maxs.append(np.max(fields[:,i,:,:]))
-        return mins,maxs
+                maxs.append(np.max(fields[:, i, :, :]))
+        return mins, maxs
    
-    def __generate_mask(self,mask,transpose,color="white"):
-        mask=self.__type_transform(mask)
-        if color=="white":
-            RGB=np.ones(mask.shape) #zeros=Black, ones=white
-        elif color=="black":   
-            RGB=np.zeros(mask.shape) 
-        if transpose:
-            return torch.cat([np.expand_dims(RGB,2),np.expand_dims(RGB,2),np.expand_dims(RGB,2),np.expand_dims(mask.T,2)],-1)
-        else:
-            return torch.cat([np.expand_dims(RGB,2),np.expand_dims(RGB,2),np.expand_dims(RGB,2),np.expand_dims(mask,2)],-1)
+    def __generate_mask(self, mask, transpose, color="white"):
+        """
+        Generates a mask for the fields.
 
-    def fig_save_path (self,path):
-        self.__fig_save_path=path  
-        
-    def plot(self,
-            fields,
-            channel_names=None,channel_units=None,case_names=None,title="",
-            transpose=False,inverse_y=False,
-            cmap=CMAP_COOLHOT,
-            mask=None,
-            size_subfig=3.5,xspace=0.7,yspace=0.1,cbar_pad=0.1,
-            title_position=0,
-            redraw_ticks=True,num_colorbar_value=4,minvs=None,maxvs=None,tick_format=None,
-            data_scale=None,
-            rotate_colorbar_with_oneinput=False,
-            subfigure_index=None,
-            save_name=None,
-            use_sym_colormap=True):
-        
-        fields=self.__cat_fields(self.__type_transform(fields))
-        if mask is not None:
-            mask=self.__generate_mask(mask,transpose=transpose)
-        num_cases=fields.shape[0]
-        num_channels=fields.shape[1]
-        
-        channel_names=default(channel_names,["channel {}".format(i) for i in range(num_channels)])
-        channel_units=default(channel_units,["" for i in range(num_channels)])
-        case_names=default(case_names,["case {}".format(i) for i in range(num_cases)])
-        data_scale=default(data_scale,[1 for i in range(num_channels)])
-        fields=np.concatenate([fields[:,i:i+1,:,:]*data_scale[i] for i in range(num_channels)],1)
-        mins,maxs=self.__find_min_max(fields,minvs,maxvs)
-        
-        if num_cases ==1 and rotate_colorbar_with_oneinput:
-            cbar_location="right"
-            cbar_mode='each'
-            ticklocation="right"
+        Args:
+        - mask: The mask.
+        - transpose: Whether to transpose the mask.
+        - color: The color of the mask.
+
+        Returns:
+        - The generated mask.
+        """
+        mask = self.__type_transform(mask)
+        if color == "white":
+            RGB = np.ones(mask.shape)  # zeros=Black, ones=white
+        elif color == "black":   
+            RGB = np.zeros(mask.shape) 
+        if transpose:
+            return torch.cat([np.expand_dims(RGB, 2), np.expand_dims(RGB, 2), np.expand_dims(RGB, 2), np.expand_dims(mask.T, 2)], -1)
         else:
-            cbar_location="top"
-            cbar_mode='edge'
-            ticklocation="top" 
-        fig=plt.figure(figsize=(size_subfig*num_channels,size_subfig*num_cases))
+            return torch.cat([np.expand_dims(RGB, 2), np.expand_dims(RGB, 2), np.expand_dims(RGB, 2), np.expand_dims(mask, 2)], -1)
+
+    def fig_save_path(self, path):
+        """
+        Sets the figure save path.
+
+        Args:
+        - path: The path to save the figures.
+        """
+        self.__fig_save_path = path  
+        
+    def plot(self, fields, channel_names=None, channel_units=None, case_names=None, title="", transpose=False, inverse_y=False, cmap=CMAP_COOLHOT, mask=None, size_subfig=3.5, xspace=0.7, yspace=0.1, cbar_pad=0.1, title_position=0, redraw_ticks=True, num_colorbar_value=4, minvs=None, maxvs=None, tick_format=None, data_scale=None, rotate_colorbar_with_oneinput=False, subfigure_index=None, save_name=None, use_sym_colormap=True):
+        """
+        Plots the fields.
+
+        Args:
+        - fields: The input fields.
+        - channel_names: The names of the channels.
+        - channel_units: The units of the channels.
+        - case_names: The names of the cases.
+        - title: The title of the plot.
+        - transpose: Whether to transpose the fields.
+        - inverse_y: Whether to invert the y-axis.
+        - cmap: The colormap to use.
+        - mask: The mask for the fields.
+        - size_subfig: The size of each subfigure.
+        - xspace: The spacing between subfigures along the x-axis.
+        - yspace: The spacing between subfigures along the y-axis.
+        - cbar_pad: The padding of the colorbar.
+        - title_position: The position of the title.
+        - redraw_ticks: Whether to redraw the colorbar ticks.
+        - num_colorbar_value: The number of colorbar values.
+        - minvs: The minimum values for each field.
+        - maxvs: The maximum values for each field.
+        - tick_format: The format of the colorbar ticks.
+        - data_scale: The scale of the data for each channel.
+        - rotate_colorbar_with_oneinput: Whether to rotate the colorbar when there is only one input.
+        - subfigure_index: The index of the subfigure.
+        - save_name: The name to save the figure.
+        - use_sym_colormap: Whether to use a symmetric colormap.
+        """
+        fields = self.__cat_fields(self.__type_transform(fields))
+        if mask is not None:
+            mask = self.__generate_mask(mask, transpose=transpose)
+        num_cases = fields.shape[0]
+        num_channels = fields.shape[1]
+        
+        channel_names = default(channel_names, ["channel {}".format(i) for i in range(num_channels)])
+        channel_units = default(channel_units, ["" for i in range(num_channels)])
+        case_names = default(case_names, ["case {}".format(i) for i in range(num_cases)])
+        data_scale = default(data_scale, [1 for i in range(num_channels)])
+        fields = np.concatenate([fields[:, i:i+1, :, :] * data_scale[i] for i in range(num_channels)], 1)
+        mins, maxs = self.__find_min_max(fields, minvs, maxvs)
+        
+        if num_cases == 1 and rotate_colorbar_with_oneinput:
+            cbar_location = "right"
+            cbar_mode = 'each'
+            ticklocation = "right"
+        else:
+            cbar_location = "top"
+            cbar_mode = 'edge'
+            ticklocation = "top" 
+        fig = plt.figure(figsize=(size_subfig * num_channels, size_subfig * num_cases))
         grid = ImageGrid(fig, 111,
-                        nrows_ncols=(num_cases,num_channels),
-                        axes_pad=(xspace,yspace),
+                        nrows_ncols=(num_cases, num_channels),
+                        axes_pad=(xspace, yspace),
                         share_all=True,
                         cbar_location=cbar_location,
                         cbar_mode=cbar_mode,
-                        direction = 'row',
-                        #cbar_size="10%",
+                        direction='row',
                         cbar_pad=cbar_pad
                         )
-        im_cb=[]
+        im_cb = []
         if use_sym_colormap:
-            colormaps=[]
+            colormaps = []
             for i in range(num_channels):
-                colormaps.append(sym_colormap(mins[i],maxs[i],cmap=cmap))
+                colormaps.append(sym_colormap(mins[i], maxs[i], cmap=cmap))
                 
-        for i,axis in enumerate(grid):
-            i_row=i//num_channels
-            i_column=i%num_channels
-            datai=fields[i_row,i_column]
+        for i, axis in enumerate(grid):
+            i_row = i // num_channels
+            i_column = i % num_channels
+            datai = fields[i_row, i_column]
             if transpose:
-                datai=datai.T
+                datai = datai.T
             if use_sym_colormap:
-                im=axis.imshow(datai,colormaps[i_column],vmin=mins[i_column],vmax=maxs[i_column])
+                im = axis.imshow(datai, colormaps[i_column], vmin=mins[i_column], vmax=maxs[i_column])
             else:
-                im=axis.imshow(datai,cmap,vmin=mins[i_column],vmax=maxs[i_column])
+                im = axis.imshow(datai, cmap, vmin=mins[i_column], vmax=maxs[i_column])
             if i < num_channels:
                 im_cb.append(im)
                     
@@ -269,21 +395,21 @@ class ChannelPloter():
                 axis.invert_yaxis()      
             axis.set_yticks([])
             axis.set_xticks([])
-            if i_column ==0:
+            if i_column == 0:
                 axis.set_ylabel(case_names[i_row])
-            if i_row == num_cases-1:
+            if i_row == num_cases - 1:
                 axis.set_xlabel(channel_names[i_column])   
 
         for i in range(num_channels):
-            cb=grid.cbar_axes[i].colorbar(im_cb[i],label=channel_units[i],ticklocation=ticklocation,format=tick_format)
+            cb = grid.cbar_axes[i].colorbar(im_cb[i], label=channel_units[i], ticklocation=ticklocation, format=tick_format)
             cb.ax.minorticks_on()
             if redraw_ticks:
-                cb.set_ticks(np.linspace(mins[i],maxs[i],num_colorbar_value,endpoint=True))      
-        fig.suptitle(title,y=title_position)
+                cb.set_ticks(np.linspace(mins[i], maxs[i], num_colorbar_value, endpoint=True))      
+        fig.suptitle(title, y=title_position)
         if subfigure_index is not None:
-            plt.suptitle(subfigure_index,x=0.01,y=0.88,fontproperties="Times New Roman")
+            plt.suptitle(subfigure_index, x=0.01, y=0.88, fontproperties="Times New Roman")
         if save_name is not None:
-            plt.savefig(self.__fig_save_path+save_name+".svg",bbox_inches = 'tight')
+            plt.savefig(self.__fig_save_path + save_name + ".svg", bbox_inches='tight')
         plt.show()
 
 field_plotter=ChannelPloter()
@@ -302,6 +428,34 @@ def show_each_channel(
             save_name=None,
             use_sym_colormap=False
             ):
+    '''
+    Show each channel of the fields. Use an instance of ChannelPloter to plot the fields. See ChannelPloter.plot() for more details.
+
+    Args:
+        fields: The input fields.
+        channel_names: The names of the channels.
+        channel_units: The units of the channels.
+        case_names: The names of the cases.
+        title: The title of the plot.
+        transpose: Whether to transpose the fields.
+        inverse_y: Whether to invert the y-axis.
+        cmap: The colormap to use.
+        mask: The mask for the fields.
+        size_subfig: The size of each subfigure.
+        xspace: The spacing between subfigures along the x-axis.
+        yspace: The spacing between subfigures along the y-axis.
+        cbar_pad: The padding of the colorbar.
+        title_position: The position of the title.
+        redraw_ticks: Whether to redraw the colorbar ticks.
+        num_colorbar_value: The number of colorbar values.
+        minvs: The minimum values for each field.
+        maxvs: The maximum values for each field.
+        tick_format: The format of the colorbar ticks.
+        data_scale: The scale of the data for each channel.
+        rotate_colorbar_with_oneinput: Whether to rotate the colorbar when there is only one input.
+        save_name: The name to save the figure.
+        use_sym_colormap: Whether to use a symmetric colormap.
+    '''
     field_plotter.plot(
             fields=fields,
             channel_names=channel_names,channel_units=channel_units,case_names=case_names,title=title,

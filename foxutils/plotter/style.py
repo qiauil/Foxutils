@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.2
-#last modified:20231208
+#version:0.0.3
+#last modified:20231210
 
 from . import *
 
@@ -21,6 +21,7 @@ CMAP_HOT=colors.LinearSegmentedColormap.from_list("HOT",np.vstack((WHITE,HOT[1:]
 CMAP_COOLHOT=colors.LinearSegmentedColormap.from_list("HOT",np.vstack((COOL[0:-1],WHITE,HOT[1:])))
 
 LINE_COLOR=['#FF1F5B', '#009ADE', '#FFC61E', '#AF58BA', '#F28522', '#00CD6C','#A6761D']
+#https://github.com/OrdnanceSurvey/GeoDataViz-Toolkit/tree/master/Colours
 
 LINE_STYLE = [
     ('solid', (0, ())), 

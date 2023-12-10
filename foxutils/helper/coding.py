@@ -14,19 +14,43 @@ def default(val, d):
         return val
     return d() if isfunction(d) else d
 
-def time_estimation(start_time,index_now,end_index,start_index=0):
-    time_now=time.perf_counter()
+def time_estimation(start_time, index_now, end_index, start_index=0):
+    """
+    Calculate the estimated time remaining based on the current progress.
+
+    Args:
+        start_time (float): The start time of the process.
+        index_now (int): The current index of the process.
+        end_index (int): The final index of the process.
+        start_index (int, optional): The starting index of the process. Defaults to 0.
+
+    Returns:
+        str: A string representing the estimated time remaining or the total time used.
+    """
+    time_now = time.perf_counter()
+
     def format_time(seconds):
-        seconds=int(seconds)
+        """
+        Format the given time in seconds to HH:MM:SS format.
+
+        Args:
+            seconds (int): The time in seconds.
+
+        Returns:
+            str: The formatted time in HH:MM:SS format.
+        """
+        seconds = int(seconds)
         m, s = divmod(seconds, 60)
         h, m = divmod(m, 60)
         return "{:0>2d}:{:0>2d}:{:0>2d}".format(h, m, s)
-    used=time_now-start_time
-    if index_now!=end_index:
-        left=used*(end_index-index_now)/(index_now-start_index+1)
-        return "Time used:{} Time left:{}".format(format_time(used),format_time(left))
+
+    used = time_now - start_time
+
+    if index_now != end_index:
+        left = used * (end_index - index_now) / (index_now - start_index + 1)
+        return "Time used: {} Time left: {}".format(format_time(used), format_time(left))
     else:
-        return "Total time used:{}".format(format_time(used))
+        return "Total time used: {}".format(format_time(used))
 
 class GeneralDataClass():
     
@@ -64,12 +88,32 @@ class GeneralDataClass():
             delattr(self,key)
 
 class ConfigurationsHandler():
-    
+    """
+    A class that handles configurations for a specific application or module.
+    """
+
     def __init__(self) -> None:
+        """
+        Initializes a new instance of the ConfigurationsHandler class.
+        """
         self.__configs_feature={}
         self.__configs=GeneralDataClass()
         
     def add_config_item(self,name,default_value=None,default_value_func=None,mandatory=False,description="",value_type=None,option=None,in_func=None,out_func=None):
+        """
+        Adds a new configuration item to the handler.
+
+        Args:
+            name (str): The name of the configuration item.
+            default_value (Any, optional): The default value for the configuration item. Defaults to None.
+            default_value_func (Callable, optional): A function that returns the default value for the configuration item. Defaults to None.
+            mandatory (bool, optional): Indicates whether the configuration item is mandatory. Defaults to False.
+            description (str, optional): The description of the configuration item. Defaults to "".
+            value_type (type, optional): The expected type of the configuration item. Defaults to None.
+            option (List[Any], optional): The list of possible values for the configuration item. Defaults to None.
+            in_func (Callable, optional): A function to transform the input value of the configuration item. Defaults to None.
+            out_func (Callable, optional): A function to transform the output value of the configuration item. Defaults to None.
+        """
         if not mandatory and default_value is None and default_value_func is None:
             raise Exception("Default value or default value func must be set for non-mandatory configuration.")
         if mandatory and (default_value is not None or default_value_func is not None):
@@ -98,11 +142,27 @@ class ConfigurationsHandler():
         }
     
     def get_config_features(self,key):
+        """
+        Retrieves the features of a specific configuration item.
+
+        Args:
+            key (str): The name of the configuration item.
+
+        Returns:
+            dict: A dictionary containing the features of the configuration item.
+        """
         if key not in self.__configs_feature.keys():
             raise Exception("{} is not a supported configuration.".format(key))
         return self.__configs_feature[key]
     
     def set_config_features(self,key,feature):
+        """
+        Sets the features of a specific configuration item.
+
+        Args:
+            key (str): The name of the configuration item.
+            feature (dict): A dictionary containing the features of the configuration item.
+        """
         self.add_config_item(key,default_value=feature["default_value"],
                              default_value_func=feature["default_value_func"],
                              mandatory=feature["mandatory"],
@@ -113,6 +173,12 @@ class ConfigurationsHandler():
                              out_func=feature["out_func"])
 
     def set_config_items(self,**kwargs):
+        """
+        Sets the values of multiple configuration items.
+
+        Args:
+            kwargs (Any): Keyword arguments representing the configuration items and their values.
+        """
         for key in kwargs.keys():
             if key not in self.__configs_feature.keys():
                 raise Exception("{} is not a supported configuration.".format(key))
@@ -125,6 +191,12 @@ class ConfigurationsHandler():
             self.__configs_feature[key]["out_func_ran"]=False
     
     def configs(self):
+        """
+        Retrieves the current configurations.
+
+        Returns:
+            GeneralDataClass: An instance of the GeneralDataClass containing the current configurations.
+        """
         for key in self.__configs_feature.keys():
             not_set=False
             if not hasattr(self.__configs,key):
@@ -155,11 +227,24 @@ class ConfigurationsHandler():
         return self.__configs
 
     def set_config_items_from_yaml(self,yaml_file):
+        """
+        Sets the values of configuration items from a YAML file.
+
+        Args:
+            yaml_file (str): The path to the YAML file.
+        """
         with open(yaml_file,"r") as f:
             yaml_configs=yaml.safe_load(f)
         self.set_config_items(**yaml_configs)
     
     def save_config_items_to_yaml(self,yaml_file,only_optional=False):
+        """
+        Saves the values of configuration items to a YAML file.
+
+        Args:
+            yaml_file (str): The path to the YAML file.
+            only_optional (bool, optional): Indicates whether to save only the optional configuration items. Defaults to False.
+        """
         config_dict=self.configs().__dict__
         if only_optional:
             output_dict={}
@@ -177,6 +262,9 @@ class ConfigurationsHandler():
             yaml.dump(output_dict,f)
     
     def show_config_features(self):
+        """
+            Displays the features of all configuration items.
+        """
         mandatory_configs=[]
         optional_configs=[]
         for key in self.__configs_feature.keys():
@@ -205,5 +293,8 @@ class ConfigurationsHandler():
             print(key)
    
     def show_config_items(self):
+        """
+            Displays the values of all configuration items.
+        """
         for key,value in self.configs().__dict__.items():
             print("{}: {}".format(key,value))

@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.2
-#last modified:20230803
+#version:0.0.3
+#last modified:20231210
 
 from . import *
 from ..helper.coding import *
@@ -11,6 +11,13 @@ class UNet(nn.Module):
         self,
         path_config_file:str="",**kwargs
     ):
+        """
+        UNet model implementation. You can use show_config_options() to see the available configuration options.
+
+        Args:
+            path_config_file (str): Path to the configuration file (default: "").
+            **kwargs: Additional keyword arguments for configuring the model.
+        """
         super().__init__()
         if not hasattr(self,"configs_handler"):
             self.configs_handler=ConfigurationsHandler()
@@ -46,38 +53,138 @@ class UNet(nn.Module):
         self.final_layer = self.build_final_block(dim_in=self.channels[0],dim_out=self.configs.dim_out)
     
     def build_initial_block(self,dim_in:int,dim_out:int):
+        '''
+        Build the initial block of the UNet. Recommended to override when designing a new UNet.
+
+        Args:
+            dim_in (int): The input dimension of the initial block.
+            dim_out (int): The output dimension of the initial block.
+        
+        Returns: 
+            nn.Module: The initial block.
+        '''
         return nn.Conv2d(dim_in, dim_out, 3, padding=1)
 
     def build_down_block(self,dim_in:int,dim_out:int,index_layer:int):
+        '''
+        Build a down block of the UNet. Recommended to override when designing a new UNet.
+
+        Args:
+            dim_in (int): The input dimension of the down block.
+            dim_out (int): The output dimension of the down block.
+            index_layer (int): The index of the down block.
+        
+        Returns: 
+            nn.Module: The down block.
+        '''
         return nn.Conv2d(dim_in, dim_out, 4, stride=2, padding=1)
 
     def build_bottleneck(self,dim_in:int,dim_out:int):
+        '''
+        Build the bottleneck block of the UNet. Recommended to override when designing a new UNet.
+
+        Args:
+            dim_in (int): The input dimension of the bottleneck block.
+            dim_out (int): The output dimension of the bottleneck block.
+        
+        Returns: 
+            nn.Module: The bottleneck block.
+        '''
         return nn.Conv2d(dim_in, dim_out, 3, padding=1)
     
     def build_up_block(self,dim_in:int,dim_out:int,index_layer:int):
+        '''
+        Build an up block of the UNet. Recommended to override when designing a new UNet.
+
+        Args:
+            dim_in (int): The input dimension of the up block.
+            dim_out (int): The output dimension of the up block.
+            index_layer (int): The index of the up block.
+        
+        Returns: 
+            nn.Module: The up block.
+        '''
         return nn.ConvTranspose2d(dim_in, dim_out, 4, stride=2, padding=1)
 
     def build_final_block(self,dim_in:int,dim_out:int):
+        '''
+        Build the final block of the UNet. Recommended to override when designing a new UNet.
+
+        Args:
+            dim_in (int): The input dimension of the final block.
+            dim_out (int): The output dimension of the final block.
+        
+        Returns: 
+            nn.Module: The final block.
+        '''
         return nn.Conv2d(dim_in, dim_out, 3, padding=1)
 
     def check_size(self, input_size: int):
+        """
+        Check the size of the neck layer.
+
+        Args:
+            input_size (int): Size of the input image.
+
+        Returns:
+            None
+        """
         size_neck = input_size/(math.pow(2, len(self.in_out_pairs)))
         print("The image size of the neck layer is (B,{},{},{})".format(
             self.in_out_pairs[-1][-1], size_neck, size_neck))
      
     def save_configs(self,yaml_file):
+        """
+        Save the current model configurations to a YAML file.
+
+        Args:
+            yaml_file (str): Path to the YAML file.
+
+        Returns:
+            None
+        """
         self.configs_handler.save_config_items_to_yaml(yaml_file)
     
     def show_config_options(self):
+        """
+        Show the available configuration options for the model.
+
+        Returns:
+            None
+        """
         self.configs_handler.show_config_features()
     
     def show_current_configs(self):
+        """
+        Show the current model configurations.
+
+        Returns:
+            None
+        """
         self.configs_handler.show_config_items()
         
     def save_current_configs(self,yaml_file):
+        """
+        Save the current model configurations to a YAML file, including only the optional configurations.
+
+        Args:
+            yaml_file (str): Path to the YAML file.
+
+        Returns:
+            None
+        """
         self.configs_handler.save_config_items_to_yaml(yaml_file,only_optional=True)
 
     def forward(self, x):
+        """
+        Forward pass of the UNet model.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         skips = []
         x = self.initial_layer(x)
         for down_block in self.down_nets:
