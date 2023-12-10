@@ -1,6 +1,6 @@
 
 
-![](E:\PersonalData\Dropbox\other_project\foxutils\Using\pics\logo.svg)
+![](.\pics\logo.png)
 
 <center>Utils for PyTorch-based deep-learning study </center>
 
