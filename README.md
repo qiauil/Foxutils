@@ -1,6 +1,6 @@
 
 
-![](.\pics\logo.png)
+![](pics\logo.png)
 
 <center>Utils for PyTorch-based deep-learning study </center>
 
@@ -189,7 +189,6 @@ show_each_channel([case1,case2])
 ```
 
 
-​    
 ![png](pics/README_11_0.png)
 ​    
 
