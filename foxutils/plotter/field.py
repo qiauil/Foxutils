@@ -79,7 +79,7 @@ def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=
 
 
 def plot_2D_ax(ax,
-               data,x_start,x_end,y_start,y_end,
+               data,x_start=None,x_end=None,y_start=None,y_end=None,
                transpose=False,
                x_label=None,y_label=None,title=None,title_loc="center",
                interpolation='none', aspect='auto',
@@ -103,6 +103,10 @@ def plot_2D_ax(ax,
     Returns:
     - im (matplotlib.image.AxesImage): The plotted image.
     """
+    x_start=default(x_start,0)
+    x_end=default(x_end,data.shape[-2])
+    y_start=default(y_start,0)
+    y_end=default(y_end,data.shape[-1])
     if isinstance(data, torch.Tensor):
         data = data.detach().cpu().numpy()
     elif not isinstance(data, np.ndarray):
@@ -128,7 +132,7 @@ def plot_2D_ax(ax,
         ax.set_title(title,loc=title_loc)
     return im
 
-def plot_2D(data, x_start, x_end, y_start, y_end,
+def plot_2D(data, x_start=None, x_end=None, y_start=None, y_end=None,
             transpose=False,
             x_label=None, y_label=None, title=None, title_loc="center",
             interpolation='none', aspect='auto',
