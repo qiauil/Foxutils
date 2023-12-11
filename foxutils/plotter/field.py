@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.12
-#last modified:20231210
+#version:0.0.13
+#last modified:20231211
 
 from . import *
 from .style import *
@@ -78,44 +78,101 @@ def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=
         plt.colorbar(im,ax=ax)
 
 
-def plot2D(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None,inverse_y=True):
-    '''
-    Generate a 2D plot using matplotlib.imshow().
+def plot_2D_ax(ax,
+               data,x_start,x_end,y_start,y_end,
+               transpose=False,
+               x_label=None,y_label=None,title=None,title_loc="center",
+               interpolation='none', aspect='auto',
+               cmap=CMAP_COOLHOT, use_sym_colormap=True):
+    """
+    Plot a 2D field on the given axes.
 
-    Args:
-        field (torch.Tensor): The input tensor.
-        xtitle (str, optional): The title of the x-axis. Defaults to "j".
-        ytitle (str, optional): The title of the y-axis. Defaults to "i".
-        cmap (str, optional): The colormap to use. Defaults to 'viridis'.
-        xlist (list, optional): The list of x-axis values. Defaults to None.
-        ylist (list, optional): The list of y-axis values. Defaults to None.
-        inverse_y (bool, optional): Whether to invert the y-axis. Defaults to True.
-    '''
-    delta=1
-    if xlist is None:
-        xlen=field.shape[0]
-        xlabels = np.arange(0, xlen, delta)
-    else:
-        xlabels=xlist
-    if ylist is None:
-        ylen=field.shape[1]
-        ylabels = np.arange(0, ylen, delta)
-    else:
-        ylabels=ylist
+    Parameters:
+    - ax (matplotlib.axes.Axes): The axes on which to plot the field.
+    - data (numpy.ndarray or torch.Tensor): The 2D field data to be plotted.
+    - x_start, x_end, y_start, y_end (float): The range of x and y values for the field.
+    - transpose (bool, optional): Whether to transpose the data before plotting. Default is False.
+    - x_label, y_label (str, optional): The labels for the x and y axes. Default is None.
+    - title (str, optional): The title of the plot. Default is None.
+    - title_loc (str, optional): The location of the title. Default is "center".
+    - interpolation (str, optional): The interpolation method for the plot. Default is 'none'.
+    - aspect (str, optional): The aspect ratio of the plot. Default is 'auto'.
+    - cmap (matplotlib colormap, optional): The colormap for the plot. Default is CMAP_COOLHOT.
+    - sym_colormap (bool, optional): Whether to use a symmetric colormap. Default is True.
 
-    fig, ax = plt.subplots()
-    im = ax.imshow(field,cmap=plt.get_cmap(cmap))
-    fig.colorbar(im,ax=ax)
-    ax.set_xticks(ticks=np.arange(xlen),labels=xlabels)
-    if inverse_y:
-        ax.invert_yaxis()
-        ylabels=list(ylabels)
-        ylabels.reverse()
-    ax.set_yticks(ticks=np.arange(ylen),labels=ylabels)
-    ax.set_xlabel(xtitle)
-    ax.set_ylabel(ytitle)
+    Returns:
+    - im (matplotlib.image.AxesImage): The plotted image.
+    """
+    if isinstance(data, torch.Tensor):
+        data = data.detach().cpu().numpy()
+    elif not isinstance(data, np.ndarray):
+        data = np.asarray(data)
+    if transpose:
+        data = data.T
+        _x_start = y_start;_x_end = y_end
+        _y_start = x_start;_y_end = x_end
+        _x_label = y_label;_y_label = x_label
+    else:
+        _x_start = x_start;_x_end = x_end
+        _y_start = y_start;_y_end = y_end
+        _x_label = x_label;_y_label = y_label
+    if use_sym_colormap:
+        cmap=sym_colormap(np.min(data), np.max(data), cmap=cmap)
+    im=ax.imshow(data, interpolation=interpolation, cmap=cmap, extent=[_x_start, _x_end, _y_start, _y_end],
+                  origin='lower', aspect=aspect)
+    if _x_label is not None:
+        ax.set_xlabel(_x_label)
+    if _y_label is not None:
+        ax.set_ylabel(_y_label)
+    if title is not None:
+        ax.set_title(title,loc=title_loc)
+    return im
+
+def plot_2D(data, x_start, x_end, y_start, y_end,
+            transpose=False,
+            x_label=None, y_label=None, title=None, title_loc="center",
+            interpolation='none', aspect='auto',
+            cmap=CMAP_COOLHOT, use_sym_colormap=True,
+            fig_size=None,
+            show_colorbar=True, colorbar_label=None,
+            save_path=None):
+    """
+    Plot a 2D field.
+
+    Parameters:
+    - data: 2D array-like object representing the field data.
+    - x_start, x_end: Start and end values for the x-axis.
+    - y_start, y_end: Start and end values for the y-axis.
+    - transpose: Boolean indicating whether to transpose the data.
+    - x_label: Label for the x-axis.
+    - y_label: Label for the y-axis.
+    - title: Title of the plot.
+    - title_loc: Location of the title ('center', 'left', or 'right').
+    - interpolation: Interpolation method for the plot.
+    - aspect: Aspect ratio of the plot.
+    - cmap: Colormap for the plot.
+    - sym_colormap: Boolean indicating whether to use a symmetric colormap.
+    - fig_size: Size of the figure (tuple of width and height).
+    - show_colorbar: Boolean indicating whether to show the colorbar.
+    - colorbar_label: Label for the colorbar.
+    - save_path: File path to save the plot.
+
+    Returns:
+    - None
+    """
+    fig, ax = plt.subplots(1, 1, figsize=fig_size)
+    im = plot_2D_ax(ax, data, x_start, x_end, y_start, y_end, transpose=transpose,
+                    x_label=x_label, y_label=y_label, title=title, title_loc=title_loc,
+                    interpolation=interpolation, cmap=cmap, aspect=aspect,use_sym_colormap=use_sym_colormap)
+    if show_colorbar:
+        c_bar = fig.colorbar(im)
+        if colorbar_label is not None:
+            c_bar.set_label(colorbar_label)
+    if save_path is not None:
+        plt.savefig(save_path)
+    plt.show()
     
-def plot2DX(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None,vmin=None,vmax=None,colorbar=True):
+def plot2D_grid(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None,vmin=None,vmax=None,colorbar=True):
     '''
     Generate a 2D plot using matplotlib.pcolormesh().
     
