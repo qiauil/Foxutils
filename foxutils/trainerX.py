@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.8
-#last modified:20231210
+#version:0.0.9
+#last modified:20231213
 
 import os,torch,time,math,logging,yaml
 import torch.nn as nn
@@ -96,18 +96,20 @@ class Trainer():
         train_from_checkpoint: Train the network from a checkpoint.
         show_config_options: Show the options of training configurations.
         show_current_configs: Show the current training configurations.
-        get_optimizer: Get the optimizer based on the configuration. Recommend to override this methon.
-        get_lr_scheduler: Get the learning rate scheduler based on the configuration. Recommend to override this methon.
-        set_configs_type: Set the type of configurations. Recommend to override this methon. Recommend to override this methon.
-        train_step: The training step. Highly recommend to override this methon.
-        validation_step: The validation step. Highly recommend to override this methon.
-        back_propagate: Back propagate the loss to update the model parameters. Recommend to override this methon.
-        event_before_training: Event before training. Recommend to override this methon.
-        event_after_training: Event after training. Recommend to override this methon.
-        event_after_training_epoch: Event after training an epoch. Recommend to override this methon.
-        event_after_training_iteration: Event after training an iteration. Recommend to override this methon.
-        event_after_validation_epoch: Event after validating an epoch. Recommend to override this methon.
-        event_after_validation_iteration: Event after validating an iteration. Recommend to override this methon.
+        get_optimizer: Get the optimizer based on the configuration. Recommend to override this method.
+        get_lr_scheduler: Get the learning rate scheduler based on the configuration. Recommend to override this method.
+        set_configs_type: Set the type of configurations. Recommend to override this method. Recommend to override this method.
+        set configs_type_dataloader: Sets the configurations for the dataloader. Recommend to override this method if you want to use custom dataloader.
+        train_step: The training step. Highly recommend to override this method.
+        validation_step: The validation step. Highly recommend to override this method.
+        back_propagate: Back propagate the loss to update the model parameters. Recommend to override this method.
+        event_before_training: Event before training. Recommend to override this method.
+        event_after_training: Event after training. Recommend to override this method.
+        event_after_training_epoch: Event after training an epoch. Recommend to override this method.
+        event_after_training_iteration: Event after training an iteration. Recommend to override this method.
+        event_after_validation_epoch: Event after validating an epoch. Recommend to override this method.
+        event_after_validation_iteration: Event after validating an iteration. Recommend to override this method.
+        generate_dataloader: Generates dataloaders for training and validation datasets. Recommend to override this method if you want to use custom dataloader.
     """
     
     def __init__(self) -> None:
@@ -122,6 +124,7 @@ class Trainer():
         self.start_epoch=1
         self.optimizer=None
         self.lr_scheduler=None
+        self.run_in_silence=False
 
     def __get_logger_recorder(self):
         """
@@ -139,7 +142,8 @@ class Trainer():
         logger.addHandler(disk_handler)
         screen_handler = logging.StreamHandler()
         screen_handler.setFormatter(logging.Formatter(fmt="%(message)s"))
-        logger.addHandler(screen_handler)
+        if not self.run_in_silence:
+            logger.addHandler(screen_handler)
 
         os.makedirs(self.records_path,exist_ok=True)
         recorder=SummaryWriter(log_dir=self.records_path)
@@ -149,7 +153,7 @@ class Trainer():
     def get_optimizer(self,network):
         """
         Get the optimizer based on the configuration. 
-        Recommend to override this methon. 
+        Recommend to override this method. 
         When overriding this method, you do not need to call the parent method.
 
         Args:
@@ -202,13 +206,7 @@ class Trainer():
             validation_dataset: The dataset for validation (optional).
         """
         #set random seed  
-        torch.manual_seed(self.configs.random_seed)
-        def seed_worker(worker_id):
-            worker_seed = torch.initial_seed() % 2**32
-            numpy.random.seed(worker_seed)
-            random.seed(worker_seed)
-        dataloader_genrator = torch.Generator()
-        dataloader_genrator.manual_seed(self.configs.random_seed)
+        set_random_seed(self.configs.random_seed)
         # create project folder
         time_label = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time()))
         if not self._train_from_checkpoint:
@@ -231,30 +229,17 @@ class Trainer():
         # show model paras and save model structure
         self.logger.info("Network has {} trainable parameters".format(show_paras(network,print_result=False)))
         torch.save(network, self.project_path + "network_structure.pt")
-        # get dataloader
-        self.train_dataloader = DataLoader(train_dataset, 
-                                           batch_size=self.configs.batch_size_train, 
-                                           shuffle=self.configs.shuffle_train,
-                                           num_workers=self.configs.num_workers_train,
-                                           worker_init_fn=seed_worker,
-                                           generator=dataloader_genrator
-                                           )
+        self.logger.info("Network structure saved to {}".format(self.project_path + "network_structure.pt"))
+        # generate dataloader
+        self.train_dataloader,self.validate_dataloader=self.generate_dataloader(train_dataset,validation_dataset)
+        if self.validate_dataloader is not None:
+            num_batches_validation=len(self.validate_dataloader)
         num_batches_train=len(self.train_dataloader)
         self.logger.info("There are {} training batches in each epoch".format(num_batches_train))
-        self.logger.info("Batch size for training:{}".format(self.configs.batch_size_train))
+        if hasattr(self.configs,"batch_size_train"):
+            self.logger.info("Batch size for training:{}".format(self.configs.batch_size_train))
         self.logger.info("Training epochs:{}".format(self.configs.epochs-self.start_epoch+1))
         self.logger.info("Total training iterations:{}".format(len(self.train_dataloader)*(self.configs.epochs-self.start_epoch+1)))
-        if validation_dataset is not None:
-            self.validate_dataloader = DataLoader(validation_dataset, 
-                                                  batch_size=self.configs.batch_size_validation, 
-                                                  shuffle=self.configs.shuffle_validation,
-                                                  num_workers=self.configs.num_workers_validation,
-                                                  worker_init_fn=seed_worker,
-                                                  generator=dataloader_genrator
-                                                  )
-            num_batches_validation=len(self.validate_dataloader)
-            self.logger.info("Validation will be done every {} epochs".format(self.configs.validation_epoch_frequency))
-            self.logger.info("Batch size for validation:{}".format(self.configs.batch_size_validation))
         # set optimizer and lr scheduler
         self.optimizer = self.get_optimizer(network)
         self.lr_scheduler = self.get_lr_scheduler(self.optimizer)
@@ -276,9 +261,9 @@ class Trainer():
         else:
             loss_tag="Loss"
         network.to(self.configs.device)
+        self.event_before_training(network)
         self.logger.info("Training start!")
         p_bar=tqdm(range(self.start_epoch,self.configs.epochs+1))
-        self.event_before_training(network)
         for idx_epoch in p_bar:
             train_losses_epoch=[]
             lr_now=self.optimizer.param_groups[0]["lr"]
@@ -288,13 +273,15 @@ class Trainer():
             for idx_batch,batched_data in enumerate(self.train_dataloader):
                 loss = self.train_step(network=network, batched_data=batched_data,idx_batch=idx_batch,num_batches=num_batches_train,idx_epoch=idx_epoch,num_epoch=self.configs.epochs)
                 self.back_propagate(loss,self.optimizer)
-                train_losses_epoch.append(loss.item())
+                if self.configs.record_epoch_loss or self.configs.record_iteration_loss:
+                    train_losses_epoch.append(loss.item())
                 if self.configs.record_iteration_loss:
                     self.recorder.add_scalar("Loss_iteration/train",train_losses_epoch[-1],(idx_epoch-1)*num_batches_train+idx_batch)
                 self.event_after_training_iteration(network,idx_epoch,idx_batch)
-            train_losses_epoch_average=sum(train_losses_epoch)/len(train_losses_epoch)
-            info_epoch+=" train loss:{:.5f}".format(train_losses_epoch_average)
-            self.recorder.add_scalar("{}/train".format(loss_tag),train_losses_epoch_average,idx_epoch)
+            if self.configs.record_epoch_loss:
+                train_losses_epoch_average=sum(train_losses_epoch)/len(train_losses_epoch)
+                info_epoch+=" train loss:{:.5f}".format(train_losses_epoch_average)
+                self.recorder.add_scalar("{}/train".format(loss_tag),train_losses_epoch_average,idx_epoch)
             self.event_after_training_epoch(network,idx_epoch)
             if validation_dataset is not None and idx_epoch%self.configs.validation_epoch_frequency==0:
                 validation_losses_epoch=[]
@@ -302,13 +289,15 @@ class Trainer():
                 with torch.no_grad():
                     for idx_batch,batched_data in enumerate(self.validate_dataloader):
                         loss_validation=self.validation_step(network=network,batched_data=batched_data,idx_batch=idx_batch,num_batches=num_batches_validation,idx_epoch=idx_epoch,num_epoch=self.configs.epochs)
-                        validation_losses_epoch.append(loss_validation.item())
+                        if self.configs.record_epoch_loss or self.configs.record_iteration_loss:
+                            validation_losses_epoch.append(loss_validation.item())
                         if self.configs.record_iteration_loss:
                             self.recorder.add_scalar("Loss_iteration/validation",validation_losses_epoch[-1],(idx_epoch-1)*num_batches_validation+idx_batch)
                         self.event_after_validation_iteration(network,idx_epoch,idx_batch)
-                    validation_losses_epoch_average=sum(validation_losses_epoch)/len(validation_losses_epoch)
-                    info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
-                    self.recorder.add_scalar("{}/validation".format(loss_tag),validation_losses_epoch_average,idx_epoch)
+                    if self.configs.record_epoch_loss:
+                        validation_losses_epoch_average=sum(validation_losses_epoch)/len(validation_losses_epoch)
+                        info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
+                        self.recorder.add_scalar("{}/validation".format(loss_tag),validation_losses_epoch_average,idx_epoch)
                     self.event_after_validation_epoch(network,idx_epoch)
             p_bar.set_description(info_epoch)
             self.lr_scheduler.step()
@@ -328,7 +317,7 @@ class Trainer():
     def set_configs_type(self):
         '''
         Set the type of configurations. Supported training configurations can be shown through show_configs() function,
-        Recommend to override this methon.
+        Recommend to override this method.
         When overriding this method, you must to call the parent method.
 
         e.g.
@@ -341,28 +330,89 @@ class Trainer():
         self.configs_handler=ConfigurationsHandler()
         self.configs_handler.add_config_item("name",value_type=str,mandatory=True,description="Name of the training.")
         self.configs_handler.add_config_item("save_path",value_type=str,mandatory=True,description="Path to save the training results.")
-        self.configs_handler.add_config_item("batch_size_train",mandatory=True,value_type=int,description="Batch size for training.")
         self.configs_handler.add_config_item("epochs",mandatory=True,value_type=int,description="Number of epochs for training.")
         self.configs_handler.add_config_item("lr",mandatory=True,value_type=float,description="Initial learning rate.")
         self.configs_handler.add_config_item("device",default_value="cpu",value_type=str,description="Device for training.",in_func=lambda x,other_config:torch.device(x),out_func=lambda x,other_config:str(x))
         self.configs_handler.add_config_item("random_seed",default_value_func=lambda x:int(time.time()),value_type=int,description="Random seed for training. Default is the same as batch_size_train.")# need func
-        self.configs_handler.add_config_item("batch_size_validation",default_value_func=lambda configs:configs["batch_size_train"],value_type=int,description="Batch size for validation. Default is the same as batch_size_train.")
-        self.configs_handler.add_config_item("shuffle_train",default_value=True,value_type=bool,description="Whether to shuffle the training dataset.")
-        self.configs_handler.add_config_item("shuffle_validation",default_value_func=lambda configs:configs["shuffle_train"],value_type=bool,description="Whether to shuffle the validation dataset. Default is the same as shuffle_train.")
-        self.configs_handler.add_config_item("num_workers_train",default_value=0,value_type=int,description="Number of workers for training.")
-        self.configs_handler.add_config_item("num_workers_validation",default_value_func=lambda configs:configs["num_workers_train"],value_type=int,description="Number of workers for validation. Default is the same as num_workers_train.")
         self.configs_handler.add_config_item("validation_epoch_frequency",default_value=1,value_type=int,description="Frequency of validation.")
         self.configs_handler.add_config_item("optimizer",default_value="AdamW",value_type=str,description="Optimizer for training.",option=["AdamW","Adam","SGD"])
         self.configs_handler.add_config_item("lr_scheduler",default_value="cosine",value_type=str,description="Learning rate scheduler for training",option=["cosine","linear","constant"])
         self.configs_handler.add_config_item("final_lr",default_value_func=lambda configs:configs["lr"],value_type=float,description="Final learning rate for lr_scheduler.")
         self.configs_handler.add_config_item("warmup_epoch",default_value=0,value_type=int,description="Number of epochs for learning rate warm up.")
         self.configs_handler.add_config_item("record_iteration_loss",default_value=False,value_type=bool,description="Whether to record iteration loss.")
+        self.configs_handler.add_config_item("record_epoch_loss",default_value=True,value_type=bool,description="Whether to record epoch loss.")
+        self.configs_handler.add_config_item("record_learning_rate",default_value=True,value_type=bool,description="Whether to record learning rate.")
         self.configs_handler.add_config_item("save_epoch",default_value_func=lambda configs:configs["epochs"]//10,value_type=int,description="Frequency of saving checkpoints.")
+        self.set_configs_type_dataloader()
+        
+    def set_configs_type_dataloader(self):
+        """
+        Sets the configurations for the dataloader. Recommend to override this method if you want to use custom dataloader.
 
+        Configurations:
+        - batch_size_train: Batch size for training.
+        - batch_size_validation: Batch size for validation. Default is the same as batch_size_train.
+        - shuffle_train: Whether to shuffle the training dataset. Default is True.
+        - shuffle_validation: Whether to shuffle the validation dataset. Default is the same as shuffle_train.
+        - num_workers_train: Number of workers for training. Default is 0.
+        - num_workers_validation: Number of workers for validation. Default is the same as num_workers_train.
+        """
+        
+        self.configs_handler.add_config_item("batch_size_train",mandatory=True,value_type=int,description="Batch size for training.")
+        self.configs_handler.add_config_item("batch_size_validation",default_value_func=lambda configs:configs["batch_size_train"],value_type=int,description="Batch size for validation. Default is the same as batch_size_train.")
+        self.configs_handler.add_config_item("shuffle_train",default_value=True,value_type=bool,description="Whether to shuffle the training dataset.")
+        self.configs_handler.add_config_item("shuffle_validation",default_value_func=lambda configs:configs["shuffle_train"],value_type=bool,description="Whether to shuffle the validation dataset. Default is the same as shuffle_train.")
+        self.configs_handler.add_config_item("num_workers_train",default_value=0,value_type=int,description="Number of workers for training.")
+        self.configs_handler.add_config_item("num_workers_validation",default_value_func=lambda configs:configs["num_workers_train"],value_type=int,description="Number of workers for validation. Default is the same as num_workers_train.")
+        
+    def generate_dataloader(self, train_dataset, validation_dataset):
+        """
+        Generates dataloaders for training and validation datasets. Recommend to override this method if you want to use custom dataloader.
+
+        Args:
+            train_dataset (torch.utils.data.Dataset): The training dataset.
+            validation_dataset (torch.utils.data.Dataset): The validation dataset.
+
+        Returns:
+            train_dataloader (torch.utils.data.DataLoader): The dataloader for the training dataset.
+            validate_dataloader (torch.utils.data.DataLoader): The dataloader for the validation dataset, or None if no validation dataset is provided.
+        """
+        def seed_worker(worker_id):
+            worker_seed = torch.initial_seed() % 2**32
+            numpy.random.seed(worker_seed)
+            random.seed(worker_seed)
+
+        dataloader_genrator = torch.Generator()
+        dataloader_genrator.manual_seed(self.configs.random_seed)
+
+        train_dataloader = DataLoader(train_dataset, 
+                                      batch_size=self.configs.batch_size_train, 
+                                      shuffle=self.configs.shuffle_train,
+                                      num_workers=self.configs.num_workers_train,
+                                      worker_init_fn=seed_worker,
+                                      generator=dataloader_genrator
+                                      )
+
+        if validation_dataset is not None:
+            validate_dataloader = DataLoader(validation_dataset, 
+                                             batch_size=self.configs.batch_size_validation, 
+                                             shuffle=self.configs.shuffle_validation,
+                                             num_workers=self.configs.num_workers_validation,
+                                             worker_init_fn=seed_worker,
+                                             generator=dataloader_genrator
+                                             )
+            self.logger.info("Validation will be done every {} epochs".format(self.configs.validation_epoch_frequency))
+            self.logger.info("Batch size for validation:{}".format(self.configs.batch_size_validation))
+        else:
+            validate_dataloader = None
+            self.logger.info("No validation will be done")
+
+        return train_dataloader, validate_dataloader
+        
     def train_step(self,network:torch.nn.Module,batched_data,idx_batch:int,num_batches:int,idx_epoch:int,num_epoch:int):
         '''
         Train the network for one step.
-        It is highly to recommend to override this methon when developing a new trainer.
+        It is highly to recommend to override this method when developing a new trainer.
         When overriding this method, you don't need to call the parent method.
         Gradient will be automatically calculated in this operation.
         Note that you need to move the 'batched_data' to the device first when overriding this method.
@@ -387,7 +437,7 @@ class Trainer():
     def validation_step(self,network:torch.nn.Module,batched_data,idx_batch:int,num_batches:int,idx_epoch:int,num_epoch:int):
         '''
         Validate the network for one step.
-        It is highly to recommend to override this methon when developing a new trainer.
+        It is highly to recommend to override this method when developing a new trainer.
         When overriding this method, you don't need to call the parent method.
         All the operation here is gradient free.
         Note that you need to move the 'batched_data' to the device first when overriding this method.
@@ -409,7 +459,7 @@ class Trainer():
         loss=torch.nn.functional.mse_loss(predictions,targets)
         return loss
 
-    def train_from_scratch(self,network,train_dataset,validation_dataset=None,path_config_file:str="",**kwargs):
+    def train_from_scratch(self,network,train_dataset,validation_dataset=None,path_config_file:str="",run_in_silence=False,**kwargs):
         '''
         Train the network from scratch. Supported training configurations can be shown through show_configs() function.
 
@@ -420,6 +470,7 @@ class Trainer():
             path_config_file: str, path to the yaml file of the training configurations, default is ""
             kwargs: dict, the training configurations, default is {}, will overwrite the configurations in the yaml file.
         '''
+        self.run_in_silence=run_in_silence
         self._train_from_checkpoint=False
         if path_config_file != "":
             self.configs_handler.set_config_items_from_yaml(path_config_file)
@@ -427,7 +478,7 @@ class Trainer():
         self.configs=self.configs_handler.configs()
         self.__train(network,train_dataset,validation_dataset)
 
-    def train_from_checkpoint(self,project_path,train_dataset,validation_dataset=None,restart_epoch=None):
+    def train_from_checkpoint(self,project_path,train_dataset,validation_dataset=None,restart_epoch=None,run_in_silence=False):
         '''
         Train the network from a checkpoint. The checkpoint should be in the project folder.
         Supported training configurations can be shown through show_configs() function.
@@ -438,6 +489,7 @@ class Trainer():
             validation_dataset: torch.utils.data.Dataset, the validation dataset, default is None. If None, no validation will be done.
             restart_epoch: int, the epoch to restart training, default is None, which means the latest checkpoint will be used.
         '''
+        self.run_in_silence=run_in_silence
         self._train_from_checkpoint=True
         self.project_path=project_path
         # get checkpoint epoch
@@ -484,7 +536,7 @@ class Trainer():
     def event_before_training(self,network):
         '''
         Event before training. Will do nothing by default.
-        Recommend to override this methon.
+        Recommend to override this method.
         When overriding this method, you don't need to call the parent method.
 
         Args:
@@ -496,7 +548,7 @@ class Trainer():
     def event_after_training(self,network):
         '''
         Event after training. Will do nothing by default.
-        Recommend to override this methon.
+        Recommend to override this method.
         When overriding this method, you don't need to call the parent method.
         
         Args:
@@ -508,7 +560,7 @@ class Trainer():
     def event_after_training_epoch(self,network,idx_epoch):
         '''
         Event after training an epoch. Will do nothing by default.
-        Recommend to override this methon.
+        Recommend to override this method.
         When overriding this method, you don't need to call the parent method.
 
         Args:
@@ -521,7 +573,7 @@ class Trainer():
     def event_after_training_iteration(self,network,idx_epoch,idx_batch):
         '''
         Event after training an iteration. Will do nothing by default.
-        Recommend to override this methon.
+        Recommend to override this method.
         When overriding this method, you don't need to call the parent method.
 
         Args:
@@ -535,7 +587,7 @@ class Trainer():
     def event_after_validation_epoch(self,network,idx_epoch):
         '''
         Event after validating an epoch. Will do nothing by default.
-        Recommend to override this methon.
+        Recommend to override this method.
         When overriding this method, you don't need to call the parent method.
 
         Args:
@@ -548,7 +600,7 @@ class Trainer():
     def event_after_validation_iteration(self,network,idx_epoch,idx_batch):
         '''
         Event after validating an iteration. Will do nothing by default.
-        Recommend to override this methon.
+        Recommend to override this method.
         When overriding this method, you don't need to call the parent method.
 
         Args:
@@ -570,6 +622,8 @@ class Trainer():
         Show the current training configurations.
         '''
         self.configs_handler.show_config_items()
+
+
 
 class TrainedProject():
     '''

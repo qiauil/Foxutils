@@ -5,6 +5,8 @@
 
 from inspect import isfunction
 import time,yaml
+import torch,random
+import numpy as np
 
 def exists(x):
     return x is not None
@@ -298,3 +300,19 @@ class ConfigurationsHandler():
         """
         for key,value in self.configs().__dict__.items():
             print("{}: {}".format(key,value))
+    
+def set_random_seed(random_seed):
+        """
+        Set the random seed for various libraries.
+
+        Args:
+                random_seed (int): The random seed value to set.
+
+        Returns:
+                None
+        """
+        torch.manual_seed(random_seed)
+        torch.cuda.manual_seed(random_seed)
+        torch.cuda.manual_seed_all(random_seed)
+        np.random.seed(random_seed)
+        random.seed(random_seed)
