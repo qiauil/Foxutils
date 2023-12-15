@@ -283,7 +283,7 @@ class Trainer():
                 info_epoch+=" train loss:{:.5f}".format(train_losses_epoch_average)
                 self.recorder.add_scalar("{}/train".format(loss_tag),train_losses_epoch_average,idx_epoch)
             self.event_after_training_epoch(network,idx_epoch)
-            if validation_dataset is not None and idx_epoch%self.configs.validation_epoch_frequency==0:
+            if self.validate_dataloader is not None and idx_epoch%self.configs.validation_epoch_frequency==0:
                 validation_losses_epoch=[]
                 network.eval()
                 with torch.no_grad():
