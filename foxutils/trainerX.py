@@ -1,6 +1,6 @@
 # usr/bin/python3
 
-#version:0.0.10
+#version:0.0.11
 #last modified:20231218
 
 import os,torch,time,math,logging,yaml
@@ -766,7 +766,7 @@ class TrainedProject():
         Returns:
             torch.nn.Module: The saved network.
         '''
-        network=self.get_network_strcuture(only_path=False)
+        network=self.get_network_structure(only_path=False)
         if check_point is not None:
             weights=self.get_checkpoints(check_point=check_point)["network"]
         else:
