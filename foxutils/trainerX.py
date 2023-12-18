@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.9
-#last modified:20231213
+#version:0.0.10
+#last modified:20231218
 
 import os,torch,time,math,logging,yaml
 import torch.nn as nn
@@ -649,7 +649,7 @@ class TrainedProject():
             print("Trying to use the latest subfolder as project path",flush=True)
             dir_list = [folder_name for folder_name in os.listdir(project_path) if os.path.isdir(project_path+folder_name)]
             folder_name = sorted(dir_list,  key=lambda x: os.path.getmtime(os.path.join(project_path, x)))[-1]
-            if not os.path.exists(project_path+folder_name+os.sep+"network_structure.pt"):
+            if not os.path.exists(project_path+folder_name+os.sep+"configs.yaml"):
                 raise FileNotFoundError("No configs.yaml found in {}".format(project_path+folder_name+os.sep))
             project_path+=folder_name+os.sep
         self.project_path=project_path
@@ -777,6 +777,69 @@ class TrainedProject():
                 weights=self.get_checkpoints(check_point=None)["network"]
         network.load_state_dict(weights)
         return network
+
+class TrainedProjects():
+    """
+    A class representing a collection of trained projects.
+
+    Attributes:
+    - projects_path: The path to the directory containing the trained projects.
+
+    Methods:
+    - __init__(self, projects_path): Initializes the TrainedProjects object.
+    - __len__(self): Returns the number of trained projects.
+    - __getitem__(self, index): Returns the trained project at the specified index.
+    - get_projects_path(self): Returns the path to the directory containing the trained projects.
+    """
+
+    def __init__(self, projects_path) -> None:
+        """
+        Initializes the TrainedProjects object.
+
+        Parameters:
+        - projects_path: The path to the directory containing the trained projects.
+        """
+        folder_names = [folder_name for folder_name in os.listdir(projects_path) if os.path.isdir(projects_path+folder_name)]
+        self.folders_name = sorted(folder_names,  key=lambda x: os.path.getmtime(os.path.join(projects_path, x)))
+        for folder in self.folders_name:
+            path=projects_path+folder+os.sep
+            if not os.path.exists(path+"configs.yaml"):
+                raise FileNotFoundError("No configs.yaml found in {}".format(path))
+        self.folders_name = [projects_path+folder+os.sep for folder in self.folders_name]
+            
+    def __len__(self):
+        """
+        Returns the number of trained projects.
+
+        Returns:
+        - The number of trained projects.
+        """
+        return len(self.folders_name)
+    
+    def __getitem__(self, index):
+        """
+        Returns the trained project at the specified index.
+
+        Parameters:
+        - index: The index of the trained project to retrieve.
+
+        Returns:
+        - If index is an integer, returns the TrainedProject object at the specified index.
+        - If index is a slice, returns a list of TrainedProject objects corresponding to the slice.
+        """
+        if type(index) is int:
+            return TrainedProject(self.folders_name[index])
+        else:
+            return [TrainedProject(folder_name) for folder_name in self.folders_name[index]]
+        
+    def get_projects_path(self):
+        """
+        Returns the path to the directory containing the trained projects.
+
+        Returns:
+        - The path to the directory containing the trained projects.
+        """
+        return self.folders_name
 
 def read_configs(path_config_file):
     '''
