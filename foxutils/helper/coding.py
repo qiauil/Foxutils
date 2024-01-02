@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.8
-#last modified:20231207
+#version:0.0.9
+#last modified:20240102
 
 from inspect import isfunction
 import time,yaml
@@ -15,6 +15,15 @@ def default(val, d):
     if exists(val):
         return val
     return d() if isfunction(d) else d
+
+def seconds_to_hms(seconds,str=True):
+    h = seconds // 3600
+    m = seconds % 3600 // 60
+    s = seconds % 3600 % 60
+    if str:
+        return "%02dh:%02dm:%02ds" % (h, m, s)
+    else:
+        return h,m,s
 
 def time_estimation(start_time, index_now, end_index, start_index=0):
     """

@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.11
-#last modified:20231218
+#version:0.0.12
+#last modified:20240102
 
 import os,torch,time,math,logging,yaml
 import torch.nn as nn
@@ -207,6 +207,7 @@ class Trainer():
         """
         #set random seed  
         set_random_seed(self.configs.random_seed)
+        training_time=0.0;start_time=time.time()
         # create project folder
         time_label = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time()))
         if not self._train_from_checkpoint:
@@ -271,13 +272,15 @@ class Trainer():
             self.recorder.add_scalar("learning_rate",lr_now,idx_epoch)
             network.train()
             for idx_batch,batched_data in enumerate(self.train_dataloader):
+                time_now=time.time()
                 loss = self.train_step(network=network, batched_data=batched_data,idx_batch=idx_batch,num_batches=num_batches_train,idx_epoch=idx_epoch,num_epoch=self.configs.epochs)
                 self.back_propagate(loss,self.optimizer)
+                self.event_after_training_iteration(network,idx_epoch,idx_batch)
+                training_time+=time.time()-time_now
                 if self.configs.record_epoch_loss or self.configs.record_iteration_loss:
                     train_losses_epoch.append(loss.item())
                 if self.configs.record_iteration_loss:
                     self.recorder.add_scalar("Loss_iteration/train",train_losses_epoch[-1],(idx_epoch-1)*num_batches_train+idx_batch)
-                self.event_after_training_iteration(network,idx_epoch,idx_batch)
             if self.configs.record_epoch_loss:
                 train_losses_epoch_average=sum(train_losses_epoch)/len(train_losses_epoch)
                 info_epoch+=" train loss:{:.5f}".format(train_losses_epoch_average)
@@ -313,6 +316,10 @@ class Trainer():
         network.to("cpu")
         torch.save(network.state_dict(),self.project_path+"trained_network_weights.pt")
         self.logger.info("Training finished!")
+        total_time=time.time()-start_time
+        self.logger.info("Total running time: {}".format(seconds_to_hms(total_time)))
+        self.logger.info("Total training time: {}".format(seconds_to_hms(training_time)))
+        self.logger.info("Training speed: {:.5f} s/iteration".format(training_time/(self.configs.epochs-self.start_epoch+1)/num_batches_train))
 
     def set_configs_type(self):
         '''
