@@ -40,6 +40,8 @@ def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y
         raise ValueError("datas should be a 2D array")
     if len(labels) != datas.shape[0]:
         raise ValueError("labels should have the same length as the first dimension of datas")
+    if len(labels) > len(colors):
+        raise ValueError("number of label datas is larger than the number of colors. Try to use LINE_COLOR_EXTEND or a larger color list.")
     if len(x_items) != datas.shape[1]:
         raise ValueError("x_items should have the same length as the second dimension of datas")
 
