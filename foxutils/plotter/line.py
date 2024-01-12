@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.3
-#last modified:20231210
+#version:0.0.4
+#last modified:20240112
 
 
 from . import *
@@ -338,6 +338,12 @@ class FormatLinePlotter():
         """
         os.makedirs(self.__fig_save_path,exist_ok=True)
         plt.savefig(self.__fig_save_path+filename+".svg",bbox_inches = 'tight')
+
+    def set_colors(self,colors):
+        '''
+        set colors for the plotter
+        '''
+        self.colors=colors
 
 line_plotter=FormatLinePlotter()
 
