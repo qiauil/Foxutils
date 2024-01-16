@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.4
-#last modified:20240112
+#version:0.0.5
+#last modified:20240116
 
 
 from . import *
@@ -205,10 +205,10 @@ class FormatLinePlotter():
                 (x,y,y_error,x_error,label,color_style,line_style,lw)=draws[1] 
                 handles=[] 
                 if y_error is not None:
-                    s1=plt.fill_between(x=x,y1=[y[i]-0.5*y_error[i] for i in range(len(y))],y2=[y[i]+0.5*y_error[i] for i in range(len(y))],facecolor=self.colors[default(color_style,i)],alpha=0.2)
+                    s1=plt.fill_between(x=x,y1=[y[i]-y_error[i] for i in range(len(y))],y2=[y[i]+y_error[i] for i in range(len(y))],facecolor=self.colors[default(color_style,i)],alpha=0.2)
                     handles.append(s1)
                 if x_error is not None:
-                    s2=plt.fill_betweenx(y=y,x1=[x[i]-0.5*x_error[i] for i in range(len(x))],x2=[x[i]+0.5*x_error[i] for i in range(len(x))],facecolor=self.colors[default(color_style,i)],alpha=0.2)
+                    s2=plt.fill_betweenx(y=y,x1=[x[i]-x_error[i] for i in range(len(x))],x2=[x[i]+x_error[i] for i in range(len(x))],facecolor=self.colors[default(color_style,i)],alpha=0.2)
                     handles.append(s2)
                 fig=plt.plot(x,y,linewidth=lw,color=self.colors[default(color_style,i)],linestyle=self.linestyles[default(line_style,i)])
                 if label is not None:
