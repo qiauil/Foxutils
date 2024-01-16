@@ -192,10 +192,10 @@ class FormatLinePlotter():
                     handles.append(s2)
                 if label is not None:
                     if x_error is not None or y_error is not None:
-                        handles.append(fig[0])
+                        handles.append(fig)
                         figs.append(tuple(handles))
                     else:
-                        figs.append(fig[0])
+                        figs.append(fig)
                     labels.append(label)
                     num_legend+=1        
             elif name == "scatter_line":
