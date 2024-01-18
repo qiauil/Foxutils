@@ -15,7 +15,7 @@ def get_install_requires():
 
 setuptools.setup(
     name="foxutils",
-    version="0.0.43",
+    version="0.0.44",
     author="Qiauil",
     author_email="qiangliu.7@outlook.com",
     description="Utils for PyTorch based deep-learning study",

@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.13
-#last modified:20231211
+#version:0.0.14
+#last modified:20240118
 
 from . import *
 from .style import *
@@ -83,7 +83,7 @@ def plot_2D_ax(ax,
                transpose=False,
                x_label=None,y_label=None,title=None,title_loc="center",
                interpolation='none', aspect='auto',
-               cmap=CMAP_COOLHOT, use_sym_colormap=True):
+               cmap=CMAP_COOLHOT, use_sym_colormap=True,**kwargs):
     """
     Plot a 2D field on the given axes.
 
@@ -123,7 +123,7 @@ def plot_2D_ax(ax,
     if use_sym_colormap:
         cmap=sym_colormap(np.min(data), np.max(data), cmap=cmap)
     im=ax.imshow(data, interpolation=interpolation, cmap=cmap, extent=[_x_start, _x_end, _y_start, _y_end],
-                  origin='lower', aspect=aspect)
+                  origin='lower', aspect=aspect,**kwargs)
     if _x_label is not None:
         ax.set_xlabel(_x_label)
     if _y_label is not None:
@@ -139,7 +139,7 @@ def plot_2D(data, x_start=None, x_end=None, y_start=None, y_end=None,
             cmap=CMAP_COOLHOT, use_sym_colormap=True,
             fig_size=None,
             show_colorbar=True, colorbar_label=None,
-            save_path=None):
+            save_path=None,**kwargs):
     """
     Plot a 2D field.
 
@@ -167,7 +167,7 @@ def plot_2D(data, x_start=None, x_end=None, y_start=None, y_end=None,
     fig, ax = plt.subplots(1, 1, figsize=fig_size)
     im = plot_2D_ax(ax, data, x_start, x_end, y_start, y_end, transpose=transpose,
                     x_label=x_label, y_label=y_label, title=title, title_loc=title_loc,
-                    interpolation=interpolation, cmap=cmap, aspect=aspect,use_sym_colormap=use_sym_colormap)
+                    interpolation=interpolation, cmap=cmap, aspect=aspect,use_sym_colormap=use_sym_colormap,**kwargs)
     if show_colorbar:
         c_bar = fig.colorbar(im)
         if colorbar_label is not None:
