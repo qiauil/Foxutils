@@ -176,7 +176,7 @@ def plot_2D(data, x_start=None, x_end=None, y_start=None, y_end=None,
         plt.savefig(save_path)
     plt.show()
     
-def plot2D_grid(field,xtitle="i",ytitle="j",cmap='viridis',xlist=None,ylist=None,vmin=None,vmax=None,colorbar=True):
+def plot2D_grid_ax(ax,field,xtitle="i",ytitle="j",cmap='viridis',xlist=None,ylist=None,vmin=None,vmax=None,**kwargs):
     '''
     Generate a 2D plot using matplotlib.pcolormesh().
     
@@ -209,14 +209,25 @@ def plot2D_grid(field,xtitle="i",ytitle="j",cmap='viridis',xlist=None,ylist=None
     x=np.insert(x,0,x[0]-deltax*2)
     y=np.insert(y,0,y[0]-deltay*2)
 
-    fig, ax = plt.subplots()
-    pcm=ax.pcolormesh(x, y, field.T,cmap=plt.get_cmap(cmap),vmin=vmin,vmax=vmax)
-    if colorbar:
-        fig.colorbar(pcm, ax=ax)
+    pcm=ax.pcolormesh(x, y, field.T,cmap=cmap,vmin=vmin,vmax=vmax,**kwargs)
     ax.set_xlabel(xtitle)
     ax.set_ylabel(ytitle)
-    fig.set_figheight(len(y)*0.3)
-    fig.set_figwidth(len(x)*0.3)
+    return pcm
+    #fig.set_figheight(len(y)*0.3)
+    #fig.set_figwidth(len(x)*0.3)
+
+def plot2D_grid(field,xtitle="i",ytitle="j",cmap='viridis',xlist=None,ylist=None,vmin=None,vmax=None,show_colorbar=True,colorbar_label=None,save_path=None,**kwargs):
+    fig, ax = plt.subplots()
+    pcm=plot2D_grid_ax(ax,field,xtitle,ytitle,cmap,xlist,ylist,vmin,vmax,**kwargs)
+    fig.set_figheight(field.shape[1]*0.3)
+    fig.set_figwidth(field.shape[0]*0.3)
+    if show_colorbar:
+        c_bar=fig.colorbar(pcm)
+        if colorbar_label is not None:
+            c_bar.set_label(colorbar_label)
+    if save_path is not None:
+        plt.savefig(save_path)
+    plt.show()
 
 def show_image_from_tensor(image_tensor,title=""):
     '''
