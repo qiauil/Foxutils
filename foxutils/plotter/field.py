@@ -176,7 +176,7 @@ def plot_2D(data, x_start=None, x_end=None, y_start=None, y_end=None,
         plt.savefig(save_path)
     plt.show()
     
-def plot2D_grid(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None,vmin=None,vmax=None,colorbar=True):
+def plot2D_grid(field,xtitle="i",ytitle="j",cmap='viridis',xlist=None,ylist=None,vmin=None,vmax=None,colorbar=True):
     '''
     Generate a 2D plot using matplotlib.pcolormesh().
     
@@ -210,7 +210,7 @@ def plot2D_grid(field,xtitle="j",ytitle="i",cmap='viridis',xlist=None,ylist=None
     y=np.insert(y,0,y[0]-deltay*2)
 
     fig, ax = plt.subplots()
-    pcm=ax.pcolormesh(x, y, field,cmap=plt.get_cmap(cmap),vmin=vmin,vmax=vmax)
+    pcm=ax.pcolormesh(x, y, field.T,cmap=plt.get_cmap(cmap),vmin=vmin,vmax=vmax)
     if colorbar:
         fig.colorbar(pcm, ax=ax)
     ax.set_xlabel(xtitle)
