@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.14
-#last modified:20240118
+#version:0.0.15
+#last modified:20240119
 
 from . import *
 from .style import *
