@@ -1,14 +1,14 @@
 #usr/bin/python3
 # -*- coding: UTF-8 -*-
 
-#version:0.0.1
-#last modified:20231221
+#version:0.0.2
+#last modified:20240126
 
 import numpy as np
 import matplotlib.pyplot as plt
 from .style import *
 
-def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y_scale='linear', x_label=None, y_label=None, show_values=False, colors=LINE_COLOR):
+def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y_scale='linear', x_label=None, y_label=None, show_values=False, colors=LINE_COLOR,hatch="None",**args):
     """
     Compare errors using a bar plot.
 
@@ -44,6 +44,8 @@ def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y
         raise ValueError("number of label datas is larger than the number of colors. Try to use LINE_COLOR_EXTEND or a larger color list.")
     if len(x_items) != datas.shape[1]:
         raise ValueError("x_items should have the same length as the second dimension of datas")
+    if hatch is None:
+        hatch=[None]*datas.shape[0]
 
     x = np.arange(len(x_items))  # the label locations
     n_labels = len(labels)
@@ -57,7 +59,7 @@ def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y
             yerror = std[i]
         else:
             yerror = None
-        rects = ax.bar(x + offset, data, width, label=labels[i], color=colors[i], yerr=yerror, capsize=4)
+        rects = ax.bar(x + offset, data, width, label=labels[i], color=colors[i], yerr=yerror, capsize=4,hatch=hatch[i],**args)
         if show_values:
             ax.bar_label(rects, padding=3)
         multiplier += 1
