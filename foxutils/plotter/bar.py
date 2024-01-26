@@ -1,14 +1,14 @@
 #usr/bin/python3
 # -*- coding: UTF-8 -*-
 
-#version:0.0.2
+#version:0.0.3
 #last modified:20240126
 
 import numpy as np
 import matplotlib.pyplot as plt
 from .style import *
 
-def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y_scale='linear', x_label=None, y_label=None, show_values=False, colors=LINE_COLOR,hatch="None",**args):
+def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y_scale='linear', x_label=None, y_label=None, show_values=False, colors=LINE_COLOR,hatch="None",return_fig_ax=False,**args):
     """
     Compare errors using a bar plot.
 
@@ -72,4 +72,7 @@ def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y
     ax.set_xticks(x + (n_labels - 1) * width / 2, x_items)
     ax.legend(loc='upper left', ncols=n_labels)
     ax.set_yscale(y_scale)
-    plt.show()
+    if return_fig_ax:
+        return fig, ax
+    else:
+        plt.show()
