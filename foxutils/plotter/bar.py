@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from .style import *
 
-def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y_scale='linear', x_label=None, y_label=None, show_values=False, colors=LINE_COLOR,hatch="None",return_fig_ax=False,save_path=None,**args):
+def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y_scale='linear', x_label=None, y_label=None, show_values=False, colors=LINE_COLOR,hatch=None,return_fig_ax=False,save_path=None,**args):
     """
     Compare errors using a bar plot.
 
