@@ -89,7 +89,7 @@ class FormatLinePlotter():
         """
         self.__draws.append(["scatter_line",(x,y,label,color_style,line_style,mark_style,lw,marker_size)])
 
-    def color_line_errorbar(self,x,y,y_error=None,x_error=None,label=None,color_style=None,line_style=None,lw=2,eline_width=2,cap_size=4):
+    def color_line_errorbar(self,x,y,y_error=None,x_error=None,label=None,color_style=None,line_style=None,lw=2,eline_width=2,cap_size=4,marker=None):
         """
         Adds a color line plot with error bars to the list of draw commands.
 
@@ -103,7 +103,7 @@ class FormatLinePlotter():
         - line_style: The style of the line.
         - lw: The linewidth of the line.
         """
-        self.__draws.append(["color_line_errorbar",(x,y,y_error,x_error,label,color_style,line_style,lw,eline_width,cap_size)])
+        self.__draws.append(["color_line_errorbar",(x,y,y_error,x_error,label,color_style,line_style,lw,eline_width,cap_size,marker)])
 
     def color_line_errorshadow(self,x,y,y_error=None,x_error=None,label=None,color_style=None,line_style=None,lw=2,alpha=0.2):
         """
@@ -206,8 +206,8 @@ class FormatLinePlotter():
                     labels.append(label)
                     num_legend+=1   
             elif name == "color_line_errorbar":
-                (x,y,y_error,x_error,label,color_style,line_style,lw,eline_width,cap_size)=draws[1] 
-                fig=plt.errorbar(x=x,y=y,yerr=y_error,xerr=x_error,c=self.colors[default(color_style,i)],linestyle=self.linestyles[default(line_style,i)],linewidth=lw,elinewidth=eline_width,capsize=cap_size)
+                (x,y,y_error,x_error,label,color_style,line_style,lw,eline_width,cap_size,marker)=draws[1] 
+                fig=plt.errorbar(x=x,y=y,yerr=y_error,xerr=x_error,c=self.colors[default(color_style,i)],linestyle=self.linestyles[default(line_style,i)],linewidth=lw,elinewidth=eline_width,capsize=cap_size,marker=marker)
                 if label is not None:
                     figs.append(fig)
                     labels.append(label)
