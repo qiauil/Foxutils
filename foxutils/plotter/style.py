@@ -9,7 +9,7 @@ def enable_print_style(font_name="Times New Roman", font_size=30):
     #mlp.rcParams['text.latex.preamble']=r"\usepackage{amsmath}"
     mlp.rcParams['font.sans-serif'] = [font_name, font_name]
     mlp.rcParams['font.size'] = font_size
-    #mlp.rcParams['text.usetex'] =True
+    mlp.rcParams['text.usetex'] =True
 
 
 COOL=mlp.cm.get_cmap("coolwarm")(np.linspace(0, 0.5, 5))
