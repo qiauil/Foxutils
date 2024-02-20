@@ -1,13 +1,15 @@
 #usr/bin/python3
 
-#version:0.0.6
-#last modified:20240116
+#version:0.0.7
+#last modified:20240220
 
 
 from . import *
 from .style import *
 from ..helper.coding import *
 import os,math
+from typing import Optional,Union
+
 
 class FormatLinePlotter():
     """
@@ -18,10 +20,10 @@ class FormatLinePlotter():
         """
         Initializes a new instance of the FormatLinePlotter class.
         """
-        self.colors=LINE_COLOR
+        self.colors=None
         #https://github.com/OrdnanceSurvey/GeoDataViz-Toolkit/tree/master/Colours
-        self.linestyles=[ls[1] for ls in LINE_STYLE]
-        self.markers=["o","^","s","X","D","*","p"]
+        self.dash_styles=[ls[1] for ls in DASH_STYLE]
+        self.markers=["o","^","s","X","D","*","p","v","P","+"]
         self.__draws=[]
         self.__xlabel="$x$"
         self.__ylabel="$y$"
@@ -34,7 +36,7 @@ class FormatLinePlotter():
         self.__yscale="linear"
         self.__grid=False
 
-    def scatter(self,x,y,label=None,color_style=None,mark_style=None,x_error=None,y_error=None,marker_size=10,alpha=1,eline_width=2,cap_size=4):
+    def scatter(self,x,y,label:Optional[str],color_style:Union[None,int,str],mark_style:Union[None,int,str],marker_size=10,alpha=1,**kwargs):
         """
         Adds a scatter plot to the list of draw commands.
 
@@ -44,10 +46,62 @@ class FormatLinePlotter():
         - label: The label for the scatter plot.
         - color_style: The style of the color.
         - mark_style: The style of the marker.
-        """
-        self.__draws.append(["scatter",(x,y,label,color_style,mark_style,x_error,y_error,marker_size,alpha,eline_width,cap_size)])
+        - marker_size: The size of the marker.
+        - alpha: The transparency of the marker.
+        - **kwargs: Additional keyword arguments, will pass to plt.scatter.
 
-    def black_line(self,x,y,label=None,line_style=None,lw=2):
+        Returns:
+        None
+        """
+        self.__draws.append(["scatter",(x,y,label,color_style,mark_style,marker_size,alpha,kwargs)])
+    
+    def scatter_errorbar(self, x, y, y_error: Optional[Sequence], x_error: Optional[Sequence], label: Optional[str], color_style: Union[None, int, str], mark_style: Union[None, int, str], marker_size=10, alpha=1, eline_width=2, cap_size=4, **kwargs):
+        """
+        Scatter plot with error bars.
+
+        Args:
+            x (array-like): The x-coordinates of the data points.
+            y (array-like): The y-coordinates of the data points.
+            y_error (Optional[Sequence]): The error values for the y-coordinates. If provided, error bars will be plotted vertically.
+            x_error (Optional[Sequence]): The error values for the x-coordinates. If provided, error bars will be plotted horizontally.
+            label (Optional[str]): The label for the scatter plot.
+            color_style (Union[None, int, str]): The color style for the scatter plot.
+            mark_style (Union[None, int, str]): The marker style for the scatter plot.
+            marker_size (int): The size of the markers.
+            alpha (float): The transparency of the markers.
+            eline_width (int): The width of the error bars.
+            cap_size (int): The size of the error bar caps.
+            **kwargs: Additional keyword arguments to be passed to the scatter plot.
+
+        Returns:
+            None
+        """
+        self.__draws.append(["scatter_errorbar", (x, y, label, color_style, mark_style, x_error, y_error, marker_size, alpha, eline_width, cap_size)])
+    
+    def scatter_errorbar(self,x,y,y_error:Optional[Sequence],x_error:Optional[Sequence],label:Optional[str],color_style:Union[None,int,str],mark_style:Union[None,int,str],marker_size=10,alpha=1,eline_width=2,cap_size=4,**kwargs):
+        """
+        Scatter plot with error bars.
+
+        Parameters:
+        - x: x-coordinates of the data points.
+        - y: y-coordinates of the data points.
+        - y_error: Sequence of y-axis error values.
+        - x_error: Sequence of x-axis error values.
+        - label: Optional label for the scatter plot.
+        - color_style: Optional color style for the scatter plot.
+        - mark_style: Optional marker style for the scatter plot.
+        - marker_size: Size of the markers.
+        - alpha: Transparency of the markers.
+        - eline_width: Width of the error bars.
+        - cap_size: Size of the error bar caps.
+        - **kwargs: Additional keyword arguments.
+
+        Returns:
+        None
+        """
+        self.__draws.append(["scatter_errorbar",(x,y,label,color_style,mark_style,x_error,y_error,marker_size,alpha,eline_width,cap_size,kwargs)])
+
+    def black_line(self, x, y, label: Optional[str], dash_style: Union[None, int, str], lw=2, **kwargs):
         """
         Adds a black line plot to the list of draw commands.
 
@@ -55,12 +109,16 @@ class FormatLinePlotter():
         - x: The x-coordinates of the data points.
         - y: The y-coordinates of the data points.
         - label: The label for the line plot.
-        - line_style: The style of the line.
+        - dash_style: The style of the line.
         - lw: The linewidth of the line.
-        """
-        self.__draws.append(["black_line",(x,y,label,line_style,lw)])
+        - kwargs: Additional keyword arguments.
 
-    def color_line(self,x,y,label=None,color_style=None,line_style=None,lw=2):
+        Returns:
+        None
+        """
+        self.__draws.append(["black_line", (x, y, label, dash_style, lw, kwargs)])
+
+    def color_line(self, x, y, label: Optional[str], color_style: Union[None, int, str], dash_style: Union[None, int, str], lw=2, **kwargs):
         """
         Adds a color line plot to the list of draw commands.
 
@@ -69,12 +127,16 @@ class FormatLinePlotter():
         - y: The y-coordinates of the data points.
         - label: The label for the line plot.
         - color_style: The style of the color.
-        - line_style: The style of the line.
+        - dash_style: The style of the line.
         - lw: The linewidth of the line.
-        """
-        self.__draws.append(["color_line",(x,y,label,color_style,line_style,lw)])
+        - **kwargs: Additional keyword arguments.
 
-    def scatter_line(self,x,y,label=None,color_style=None,line_style=None,mark_style=None,lw=2,marker_size=10):
+        Returns:
+        None
+        """
+        self.__draws.append(["color_line", (x, y, label, color_style, dash_style, lw, kwargs)])
+
+    def scatter_line(self,x,y,label:Optional[str],color_style:Union[None,int,str],dash_style:Union[None,int,str],mark_style:Union[None,int,str],lw=2,marker_size=10,**kwargs):
         """
         Adds a scatter line plot to the list of draw commands.
 
@@ -83,13 +145,17 @@ class FormatLinePlotter():
         - y: The y-coordinates of the data points.
         - label: The label for the line plot.
         - color_style: The style of the color.
-        - line_style: The style of the line.
+        - dash_style: The style of the line.
         - mark_style: The style of the marker.
         - lw: The linewidth of the line.
-        """
-        self.__draws.append(["scatter_line",(x,y,label,color_style,line_style,mark_style,lw,marker_size)])
+        - **kwargs: Additional keyword arguments.
 
-    def color_line_errorbar(self,x,y,y_error=None,x_error=None,label=None,color_style=None,line_style=None,lw=2,eline_width=2,cap_size=4,marker=None,marker_size=10):
+        Returns:
+        None        
+        """
+        self.__draws.append(["scatter_line",(x,y,label,color_style,dash_style,mark_style,lw,marker_size,kwargs)])
+
+    def color_line_errorbar(self,x,y,y_error:Optional[Sequence],x_error:Optional[Sequence],label:Optional[str],color_style:Union[None,int,str],dash_style:Union[None,int,str],lw=2,eline_width=2,cap_size=4,marker=None,marker_size=10,**kwargs):
         """
         Adds a color line plot with error bars to the list of draw commands.
 
@@ -100,12 +166,16 @@ class FormatLinePlotter():
         - x_error: The error in the x-coordinates.
         - label: The label for the line plot.
         - color_style: The style of the color.
-        - line_style: The style of the line.
+        - dash_style: The style of the line.
         - lw: The linewidth of the line.
-        """
-        self.__draws.append(["color_line_errorbar",(x,y,y_error,x_error,label,color_style,line_style,lw,eline_width,cap_size,marker,marker_size)])
+        - **kwargs: Additional keyword arguments.
 
-    def color_line_errorshadow(self,x,y,y_error=None,x_error=None,label=None,color_style=None,line_style=None,lw=2,alpha=0.2):
+        Returns:
+        None 
+        """
+        self.__draws.append(["color_line_errorbar",(x,y,y_error,x_error,label,color_style,dash_style,lw,eline_width,cap_size,marker,marker_size,kwargs)])
+
+    def color_line_errorshadow(self,x,y,y_error:Optional[Sequence],x_error:Optional[Sequence],label:Optional[str],color_style:Union[None,int,str],dash_style:Union[None,int,str],lw=2,alpha=0.2,**kwargs):
         """
         Adds a color line plot with error shadows to the list of draw commands.
 
@@ -116,10 +186,14 @@ class FormatLinePlotter():
         - x_error: The error in the x-coordinates.
         - label: The label for the line plot.
         - color_style: The style of the color.
-        - line_style: The style of the line.
+        - dash_style: The style of the line.
         - lw: The linewidth of the line.
+        - **kwargs: Additional keyword arguments.
+
+        Returns:
+        None 
         """
-        self.__draws.append(["color_line_errorshadow",(x,y,y_error,x_error,label,color_style,line_style,lw,alpha)])
+        self.__draws.append(["color_line_errorshadow",(x,y,y_error,x_error,label,color_style,dash_style,lw,alpha,kwargs)])
 
     def get_legend_pos(self,num_legend):
         """
@@ -154,11 +228,39 @@ class FormatLinePlotter():
         else:
             legend_y=1.02
         return ncol, default(self.__legend_y,legend_y)
+    
+    def _process_mark_style(self,mark_style):
+        if mark_style is None:
+            return None
+        if isinstance(mark_style,int):
+            return self.markers[mark_style]
+        else:
+            return mark_style
+        
+    def _process_color_style(self,color_style):
+        if color_style is None:
+            return None
+        if isinstance(color_style,int):
+            return self.colors[color_style]
+        else:
+            return color_style
+    
+    def _process_dash_style(self,dash_style):
+        if dash_style is None:
+            return None
+        if isinstance(dash_style,int):
+            return self.dash_styles[dash_style]
+        else:
+            return dash_style
 
     def plot(self):
         """
         Plots the line plots based on the draw commands.
         """
+        if colors is None:
+            colors=infinite_colors(len(self.__draws))
+        if len(colors)<len(self.__draws):
+            print("Warning: number of datas is larger than the number of colors, which may result in errors. Try to use a larger color list or `infinite_colors()` function.")
         figs=[]
         labels=[]
         plt.figure(figsize=default(self.__fig_size,(8,5)))
@@ -167,28 +269,52 @@ class FormatLinePlotter():
         for i,draws in enumerate(self.__draws):
             name=draws[0]
             if name =="black_line":
-                (x,y,label,line_style,lw)=draws[1]      
-                fig=plt.plot(x,y,linestyle=self.linestyles[default(line_style,i)],linewidth=lw,color='black')
+                (x,y,label,dash_style,lw,kwargs)=draws[1]      
+                fig=plt.plot(x,y,
+                             linestyle=default(self._process_dash_style(dash_style),self.dash_styles[i]),
+                             linewidth=lw,color='black',**kwargs)
                 if label is not None:
                     figs.append(fig[0])
                     labels.append(label)
                     num_legend+=1
             elif name == "color_line":
-                (x,y,label,color_style,line_style,lw)=draws[1] 
-                fig=plt.plot(x,y,linewidth=lw,color=self.colors[default(color_style,i)],linestyle=self.linestyles[default(line_style,i)])
+                (x,y,label,color_style,dash_style,lw,kwargs)=draws[1] 
+                fig=plt.plot(x,y,
+                             linewidth=lw,
+                             color=default(self._process_color_style(color_style),self.colors[i]),
+                             linestyle=default(self._process_dash_style(dash_style),self.dash_styles[i]),
+                             **kwargs)
                 if label is not None:
                     figs.append(fig[0])
                     labels.append(label)
                     num_legend+=1
             elif name == "scatter":
+                (x,y,label,color_style,mark_style,marker_size,alpha,kwargs)=draws[1] 
+                fig=plt.scatter(x,y,
+                                marker=default(self._process_mark_style(mark_style),self.markers[i]),
+                                c=default(self._process_color_style(color_style),self.colors[i]),
+                                s=marker_size*10,alpha=alpha,**kwargs)   
+                if label is not None:
+                    figs.append(fig)
+                    labels.append(label)
+                    num_legend+=1
+            elif name == "scatter_errorbar":
                 handles=[]
-                (x,y,label,color_style,mark_style,x_error,y_error,marker_size,alpha,eline_width,cap_size)=draws[1] 
-                fig=plt.scatter(x,y,marker=self.markers[default(mark_style,i)],c=self.colors[default(color_style,i)],s=marker_size*10,alpha=alpha)
+                (x,y,label,color_style,mark_style,x_error,y_error,marker_size,alpha,eline_width,cap_size,kwargs)=draws[1] 
+                fig=plt.scatter(x,y,
+                                marker=default(self._process_mark_style(mark_style),self.markers[i]),
+                                c=default(self._process_color_style(color_style),self.colors[i]),
+                                s=marker_size*10,alpha=alpha,
+                                **kwargs)
                 if x_error is not None:
-                    s1=plt.errorbar(x=x,y=y,xerr=x_error,fmt="none",c=self.colors[default(color_style,i)],elinewidth=eline_width,capsize=cap_size)
+                    s1=plt.errorbar(x=x,y=y,xerr=x_error,fmt="none",
+                                    c=default(self._process_color_style(color_style),self.colors[i]),
+                                    elinewidth=eline_width,capsize=cap_size)
                     handles.append(s1)
                 if y_error is not None:
-                    s2=plt.errorbar(x=x,y=y,yerr=y_error,fmt="none",c=self.colors[default(color_style,i)],elinewidth=eline_width,capsize=cap_size)
+                    s2=plt.errorbar(x=x,y=y,yerr=y_error,fmt="none",
+                                    c=default(self._process_color_style(color_style),self.colors[i]),
+                                    elinewidth=eline_width,capsize=cap_size)
                     handles.append(s2)
                 if label is not None:
                     if x_error is not None or y_error is not None:
@@ -197,31 +323,45 @@ class FormatLinePlotter():
                     else:
                         figs.append(fig)
                     labels.append(label)
-                    num_legend+=1        
+                    num_legend+=1                  
             elif name == "scatter_line":
-                (x,y,label,color_style,line_style,mark_style,lw,marker_size)=draws[1]            
-                fig=plt.plot(x,y,marker=self.markers[default(mark_style,i)],c=self.colors[default(color_style,i)],linestyle=self.linestyles[default(line_style,i)],markersize=marker_size,linewidth=lw)
+                (x,y,label,color_style,dash_style,mark_style,lw,marker_size,kwargs)=draws[1]            
+                fig=plt.plot(x,y,
+                             marker=default(self._process_mark_style(mark_style),self.markers[i]),
+                             c=default(self._process_color_style(color_style),self.colors[i]),
+                             linestyle=default(self._process_dash_style(dash_style),self.dash_styles[i]),
+                             markersize=marker_size,linewidth=lw,**kwargs)
                 if label is not None:
                     figs.append(fig[0])
                     labels.append(label)
                     num_legend+=1   
             elif name == "color_line_errorbar":
-                (x,y,y_error,x_error,label,color_style,line_style,lw,eline_width,cap_size,marker,marker_size)=draws[1] 
-                fig=plt.errorbar(x=x,y=y,yerr=y_error,xerr=x_error,c=self.colors[default(color_style,i)],linestyle=self.linestyles[default(line_style,i)],linewidth=lw,elinewidth=eline_width,capsize=cap_size,marker=marker,marker_size=marker_size)
+                (x,y,y_error,x_error,label,color_style,dash_style,lw,eline_width,cap_size,marker,marker_size,kwargs)=draws[1] 
+                fig=plt.errorbar(x=x,y=y,yerr=y_error,xerr=x_error,
+                                 c=default(self._process_color_style(color_style),self.colors[i]),
+                                 linestyle=default(self._process_dash_style(dash_style),self.dash_styles[i]),
+                                 linewidth=lw,elinewidth=eline_width,capsize=cap_size,marker=marker,marker_size=marker_size,
+                                 **kwargs)
                 if label is not None:
                     figs.append(fig)
                     labels.append(label)
                     num_legend+=1    
             elif name == "color_line_errorshadow":
-                (x,y,y_error,x_error,label,color_style,line_style,lw,alpha)=draws[1] 
+                (x,y,y_error,x_error,label,color_style,dash_style,lw,alpha,kwargs)=draws[1] 
                 handles=[] 
                 if y_error is not None:
-                    s1=plt.fill_between(x=x,y1=[y[i]-y_error[i] for i in range(len(y))],y2=[y[i]+y_error[i] for i in range(len(y))],facecolor=self.colors[default(color_style,i)],alpha=alpha)
+                    s1=plt.fill_between(x=x,y1=[y[i]-y_error[i] for i in range(len(y))],y2=[y[i]+y_error[i] for i in range(len(y))],
+                                        facecolor=default(self._process_color_style(color_style),self.colors[i]),
+                                        alpha=alpha)
                     handles.append(s1)
                 if x_error is not None:
-                    s2=plt.fill_betweenx(y=y,x1=[x[i]-x_error[i] for i in range(len(x))],x2=[x[i]+x_error[i] for i in range(len(x))],facecolor=self.colors[default(color_style,i)],alpha=alpha)
+                    s2=plt.fill_betweenx(y=y,x1=[x[i]-x_error[i] for i in range(len(x))],x2=[x[i]+x_error[i] for i in range(len(x))],
+                                         facecolor=default(self._process_color_style(color_style),self.colors[i]),
+                                         alpha=alpha)
                     handles.append(s2)
-                fig=plt.plot(x,y,linewidth=lw,color=self.colors[default(color_style,i)],linestyle=self.linestyles[default(line_style,i)])
+                fig=plt.plot(x,y,linewidth=lw,
+                             color=default(self._process_color_style(color_style),self.colors[i]),
+                             linestyle=default(self._process_dash_style(dash_style),self.dash_styles[i]),**kwargs)
                 if label is not None:
                     if y_error is not None or x_error is not None:
                         handles.append(fig[0])
@@ -243,6 +383,7 @@ class FormatLinePlotter():
         plt.ylabel(self.__ylabel)
         plt.grid(self.__grid)
         plt.minorticks_on()
+        return plt.gca()
             
     def xlabel(self,xlabel):
         """
@@ -368,7 +509,7 @@ class DoubleSidePlotter():
 
     Methods:
         set_xlabel(label): Sets the x-axis label.
-        fast_plot(data_1, data_2, data_x=None, labels=["data_1", "data_2"], log=True, xlabel=None, color_data1=None, color_data2=None): Plots the data on the double-sided plot.
+        fast_plot(data_1, data_2, data_x=None, labels=["data_1", "data_2"], log=True, xlabel:Optional[str], color_data1=None, color_data2=None): Plots the data on the double-sided plot.
 
     """
 
@@ -393,7 +534,7 @@ class DoubleSidePlotter():
         """
         self.left_axis.set_xlabel(label)
 
-    def fast_plot(self, data_1, data_2, data_x=None, labels=["data_1", "data_2"], log=True, xlabel=None, color_data1=None, color_data2=None):
+    def fast_plot(self, data_1, data_2, xlabel:Optional[str],data_x=None, labels=["data_1", "data_2"], log=True, color_data1=None, color_data2=None):
         """
         Plots the data on the double-sided plot.
 
@@ -426,7 +567,7 @@ class DoubleSidePlotter():
         if xlabel is not None:
             self.left_axis.set_xlabel(xlabel)
         
-def plot_double_side(data_1,data_2,data_x=None,labels=["data_1","data_2"],log=True,xlabel=None,color_data1=None,color_data2=None):
+def plot_double_side(data_1,data_2,xlabel:Optional[str],data_x=None,labels=["data_1","data_2"],log=True,color_data1=None,color_data2=None):
     '''
     Plots the data on a double-sided plot. See DoubleSidePlotter.fast_plot for more details.
 

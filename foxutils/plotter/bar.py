@@ -1,8 +1,8 @@
 #usr/bin/python3
 # -*- coding: UTF-8 -*-
 
-#version:0.0.3
-#last modified:20240126
+#version:0.0.4
+#last modified:20240220
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,7 +10,7 @@ from .style import *
 from ..helper.coding import default
 
 def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y_scale='linear', x_label=None, y_label=None, 
-                   show_values=False, colors=LINE_COLOR,hatch=None,return_fig_ax=False,save_path=None,
+                   show_values=False, colors=None,hatch=None,return_fig_ax=False,save_path=None,
                    n_col_legend=None,legend_loc='upper left',**args):
     """
     Compare errors using a bar plot.
@@ -26,7 +26,7 @@ def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y
     - x_label (str or None): The label for the x-axis.
     - y_label (str or None): The label for the y-axis.
     - show_values (bool): Whether to show the values on top of the bars. Default is False.
-    - colors (list): The colors for each set of data.
+    - colors (list): The colors for each set of data, if None, will use default colors.
 
     Raises:
     - ValueError: If the input data is not in the correct format.
@@ -43,8 +43,11 @@ def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y
         raise ValueError("datas should be a 2D array")
     if len(labels) != datas.shape[0]:
         raise ValueError("labels should have the same length as the first dimension of datas")
-    if len(labels) > len(colors):
-        raise ValueError("number of label datas is larger than the number of colors. Try to use LINE_COLOR_EXTEND or a larger color list.")
+    if colors is not None:
+        if len(labels) > len(colors):
+            raise ValueError("number of label datas is larger than the number of colors. Try to use LINE_COLOR_EXTEND or a larger color list.")
+    else:
+        colors = infinite_colors(len(labels))
     if len(x_items) != datas.shape[1]:
         raise ValueError("x_items should have the same length as the second dimension of datas")
     if hatch is None:

@@ -10,31 +10,7 @@ import torch
 from mpl_toolkits.axes_grid1 import ImageGrid
 from ..helper.coding import *
 
-def sym_colormap(d_min,d_max,d_cen=0,cmap="coolwarm",cmapname="sym_map"):
-    '''
-    Generate a symmetric colormap.
-
-    Args:
-        d_min (float): The minimum value of the colormap.
-        d_max (float): The maximum value of the colormap.
-        d_cen (float, optional): The center value of the colormap. Defaults to 0.
-        cmap (str, optional): The colormap to use. Defaults to "coolwarm".
-        cmapname (str, optional): The name of the colormap. Defaults to "sym_map".
-
-    Returns:
-        matplotlib.colors.LinearSegmentedColormap: The generated colormap.
-    '''
-    if abs(d_max-d_cen)>abs(d_min-d_cen):
-        max_v=1
-        low_v=0.5-(d_cen-d_min)/(d_max-d_cen)*0.5
-    else:
-        low_v=0
-        max_v=0.5+(d_max-d_cen)/(d_cen-d_min)*0.5
-    if isinstance(cmap,str):
-        cmap=mlp.cm.get_cmap(cmap)
-    return colors.LinearSegmentedColormap.from_list(cmapname,cmap(np.linspace(low_v, max_v, 100)))
-
-def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=None,ylist=None):
+def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=None,ylist=None,**kwargs):
     '''
     Plot a 3D surface.
 
@@ -47,6 +23,7 @@ def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=
         plot2D (bool, optional): Whether to plot a 2D figure. Defaults to False.
         xlist (list, optional): The list of x-axis values. Defaults to None.
         ylist (list, optional): The list of y-axis values. Defaults to None.
+        kwargs: Additional keyword arguments for the plot_surface.
     '''
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"},figsize=(6, 6))
     delta=1
@@ -62,7 +39,7 @@ def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=
         y=ylist
     Z = z.T
     X, Y = np.meshgrid(x, y)
-    surf=ax.plot_surface(X, Y, Z,linewidth=0, antialiased=False,cmap=plt.get_cmap(cmap))  # 设置颜色映射
+    surf=ax.plot_surface(X, Y, Z,linewidth=0, antialiased=False,cmap=plt.get_cmap(cmap),**kwargs)  # 设置颜色映射
     plt.xlabel(xtitle,fontsize=12)
     plt.ylabel(ytitle,fontsize=12)
     ax.set_zlabel(ztitle,fontsize=12)
@@ -99,6 +76,7 @@ def plot_2D_ax(ax,
     - aspect (str, optional): The aspect ratio of the plot. Default is 'auto'.
     - cmap (matplotlib colormap, optional): The colormap for the plot. Default is CMAP_COOLHOT.
     - sym_colormap (bool, optional): Whether to use a symmetric colormap. Default is True.
+    - kwargs: Additional keyword arguments for imshow.
 
     Returns:
     - im (matplotlib.image.AxesImage): The plotted image.

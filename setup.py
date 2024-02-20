@@ -28,5 +28,5 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    requires=get_install_requires(),
+    install_requires=get_install_requires(),
 )
