@@ -1,6 +1,8 @@
 torch
 numpy
 matplotlib
-yaml
+PyYAML
 einops
 tqdm
+tensorboard
+scipy

@@ -36,7 +36,7 @@ class FormatLinePlotter():
         self.__yscale="linear"
         self.__grid=False
 
-    def scatter(self,x,y,label:Optional[str],color_style:Union[None,int,str],mark_style:Union[None,int,str],marker_size=10,alpha=1,**kwargs):
+    def scatter(self,x,y,label:Optional[str]=None,color_style:Union[None,int,str]=None,mark_style:Union[None,int,str]=None,marker_size=10,alpha=1,**kwargs):
         """
         Adds a scatter plot to the list of draw commands.
 
@@ -55,18 +55,18 @@ class FormatLinePlotter():
         """
         self.__draws.append(["scatter",(x,y,label,color_style,mark_style,marker_size,alpha,kwargs)])
     
-    def scatter_errorbar(self, x, y, y_error: Optional[Sequence], x_error: Optional[Sequence], label: Optional[str], color_style: Union[None, int, str], mark_style: Union[None, int, str], marker_size=10, alpha=1, eline_width=2, cap_size=4, **kwargs):
+    def scatter_errorbar(self, x, y, y_error: Optional[Sequence]=None, x_error: Optional[Sequence]=None, label: Optional[str]=None, color_style: Optional[Union[int, str]]=None, mark_style: Optional[Union[int, str]]=None, marker_size=10, alpha=1, eline_width=2, cap_size=4, **kwargs):
         """
         Scatter plot with error bars.
 
         Args:
             x (array-like): The x-coordinates of the data points.
             y (array-like): The y-coordinates of the data points.
-            y_error (Optional[Sequence]): The error values for the y-coordinates. If provided, error bars will be plotted vertically.
-            x_error (Optional[Sequence]): The error values for the x-coordinates. If provided, error bars will be plotted horizontally.
-            label (Optional[str]): The label for the scatter plot.
-            color_style (Union[None, int, str]): The color style for the scatter plot.
-            mark_style (Union[None, int, str]): The marker style for the scatter plot.
+            y_error (Optional[Sequence]=None): The error values for the y-coordinates. If provided, error bars will be plotted vertically.
+            x_error (Optional[Sequence]=None): The error values for the x-coordinates. If provided, error bars will be plotted horizontally.
+            label (Optional[str]=None): The label for the scatter plot.
+            color_style (Optional[Union[int, str]]=None): The color style for the scatter plot.
+            mark_style (Optional[Union[int, str]]=None): The marker style for the scatter plot.
             marker_size (int): The size of the markers.
             alpha (float): The transparency of the markers.
             eline_width (int): The width of the error bars.
@@ -78,7 +78,7 @@ class FormatLinePlotter():
         """
         self.__draws.append(["scatter_errorbar", (x, y, label, color_style, mark_style, x_error, y_error, marker_size, alpha, eline_width, cap_size)])
     
-    def scatter_errorbar(self,x,y,y_error:Optional[Sequence],x_error:Optional[Sequence],label:Optional[str],color_style:Union[None,int,str],mark_style:Union[None,int,str],marker_size=10,alpha=1,eline_width=2,cap_size=4,**kwargs):
+    def scatter_errorbar(self,x,y,y_error:Optional[Sequence]=None,x_error:Optional[Sequence]=None,label:Optional[str]=None,color_style:Union[None,int,str]=None,mark_style:Union[None,int,str]=None,marker_size=10,alpha=1,eline_width=2,cap_size=4,**kwargs):
         """
         Scatter plot with error bars.
 
@@ -101,7 +101,7 @@ class FormatLinePlotter():
         """
         self.__draws.append(["scatter_errorbar",(x,y,label,color_style,mark_style,x_error,y_error,marker_size,alpha,eline_width,cap_size,kwargs)])
 
-    def black_line(self, x, y, label: Optional[str], dash_style: Union[None, int, str], lw=2, **kwargs):
+    def black_line(self, x, y, label: Optional[str]=None, dash_style: Optional[Union[int, str]]=None, lw=2, **kwargs):
         """
         Adds a black line plot to the list of draw commands.
 
@@ -118,7 +118,7 @@ class FormatLinePlotter():
         """
         self.__draws.append(["black_line", (x, y, label, dash_style, lw, kwargs)])
 
-    def color_line(self, x, y, label: Optional[str], color_style: Union[None, int, str], dash_style: Union[None, int, str], lw=2, **kwargs):
+    def color_line(self, x, y, label: Optional[str]=None, color_style: Optional[Union[int, str]]=None, dash_style: Optional[Union[int, str]]=None, lw=2, **kwargs):
         """
         Adds a color line plot to the list of draw commands.
 
@@ -136,7 +136,7 @@ class FormatLinePlotter():
         """
         self.__draws.append(["color_line", (x, y, label, color_style, dash_style, lw, kwargs)])
 
-    def scatter_line(self,x,y,label:Optional[str],color_style:Union[None,int,str],dash_style:Union[None,int,str],mark_style:Union[None,int,str],lw=2,marker_size=10,**kwargs):
+    def scatter_line(self,x,y,label:Optional[str]=None,color_style:Union[None,int,str]=None,dash_style:Union[None,int,str]=None,mark_style:Union[None,int,str]=None,lw=2,marker_size=10,**kwargs):
         """
         Adds a scatter line plot to the list of draw commands.
 
@@ -155,7 +155,7 @@ class FormatLinePlotter():
         """
         self.__draws.append(["scatter_line",(x,y,label,color_style,dash_style,mark_style,lw,marker_size,kwargs)])
 
-    def color_line_errorbar(self,x,y,y_error:Optional[Sequence],x_error:Optional[Sequence],label:Optional[str],color_style:Union[None,int,str],dash_style:Union[None,int,str],lw=2,eline_width=2,cap_size=4,marker=None,marker_size=10,**kwargs):
+    def color_line_errorbar(self,x,y,y_error:Optional[Sequence]=None,x_error:Optional[Sequence]=None,label:Optional[str]=None,color_style:Union[None,int,str]=None,dash_style:Union[None,int,str]=None,lw=2,eline_width=2,cap_size=4,marker=None,marker_size=10,**kwargs):
         """
         Adds a color line plot with error bars to the list of draw commands.
 
@@ -175,7 +175,7 @@ class FormatLinePlotter():
         """
         self.__draws.append(["color_line_errorbar",(x,y,y_error,x_error,label,color_style,dash_style,lw,eline_width,cap_size,marker,marker_size,kwargs)])
 
-    def color_line_errorshadow(self,x,y,y_error:Optional[Sequence],x_error:Optional[Sequence],label:Optional[str],color_style:Union[None,int,str],dash_style:Union[None,int,str],lw=2,alpha=0.2,**kwargs):
+    def color_line_errorshadow(self,x,y,y_error:Optional[Sequence]=None,x_error:Optional[Sequence]=None,label:Optional[str]=None,color_style:Union[None,int,str]=None,dash_style:Union[None,int,str]=None,lw=2,alpha=0.2,**kwargs):
         """
         Adds a color line plot with error shadows to the list of draw commands.
 
@@ -257,9 +257,9 @@ class FormatLinePlotter():
         """
         Plots the line plots based on the draw commands.
         """
-        if colors is None:
-            colors=infinite_colors(len(self.__draws))
-        if len(colors)<len(self.__draws):
+        if self.colors is None:
+            self.colors=infinite_colors(len(self.__draws))
+        if len(self.colors)<len(self.__draws):
             print("Warning: number of datas is larger than the number of colors, which may result in errors. Try to use a larger color list or `infinite_colors()` function.")
         figs=[]
         labels=[]
@@ -509,7 +509,7 @@ class DoubleSidePlotter():
 
     Methods:
         set_xlabel(label): Sets the x-axis label.
-        fast_plot(data_1, data_2, data_x=None, labels=["data_1", "data_2"], log=True, xlabel:Optional[str], color_data1=None, color_data2=None): Plots the data on the double-sided plot.
+        fast_plot(data_1, data_2, data_x=None, labels=["data_1", "data_2"], log=True, xlabel:Optional[str]=None, color_data1=None, color_data2=None): Plots the data on the double-sided plot.
 
     """
 
@@ -534,7 +534,7 @@ class DoubleSidePlotter():
         """
         self.left_axis.set_xlabel(label)
 
-    def fast_plot(self, data_1, data_2, xlabel:Optional[str],data_x=None, labels=["data_1", "data_2"], log=True, color_data1=None, color_data2=None):
+    def fast_plot(self, data_1, data_2, xlabel:Optional[str]=None,data_x=None, labels=["data_1", "data_2"], log=True, color_data1=None, color_data2=None):
         """
         Plots the data on the double-sided plot.
 
@@ -567,7 +567,7 @@ class DoubleSidePlotter():
         if xlabel is not None:
             self.left_axis.set_xlabel(xlabel)
         
-def plot_double_side(data_1,data_2,xlabel:Optional[str],data_x=None,labels=["data_1","data_2"],log=True,color_data1=None,color_data2=None):
+def plot_double_side(data_1,data_2,xlabel:Optional[str]=None,data_x=None,labels=["data_1","data_2"],log=True,color_data1=None,color_data2=None):
     '''
     Plots the data on a double-sided plot. See DoubleSidePlotter.fast_plot for more details.
 
@@ -582,3 +582,4 @@ def plot_double_side(data_1,data_2,xlabel:Optional[str],data_x=None,labels=["dat
         color_data2 (str, optional): The color for the data_2 line. Defaults to None.
     '''
     DoubleSidePlotter().fast_plot(data_1,data_2,data_x=data_x,labels=labels,log=log,xlabel=xlabel,color_data1=color_data1,color_data2=color_data2)
+

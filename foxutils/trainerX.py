@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.12
-#last modified:20240102
+#version:0.0.13
+#last modified:20240307
 
 import os,torch,time,math,logging,yaml
 import torch.nn as nn
@@ -283,7 +283,10 @@ class Trainer():
                     self.recorder.add_scalar("Loss_iteration/train",train_losses_epoch[-1],(idx_epoch-1)*num_batches_train+idx_batch)
             if self.configs.record_epoch_loss:
                 train_losses_epoch_average=sum(train_losses_epoch)/len(train_losses_epoch)
-                info_epoch+=" train loss:{:.5f}".format(train_losses_epoch_average)
+                if train_losses_epoch_average>1e-5:
+                    info_epoch+=" train loss:{:.5f}".format(train_losses_epoch_average)
+                else: 
+                    info_epoch+=" train loss:{:.3e}".format(train_losses_epoch_average)
                 self.recorder.add_scalar("{}/train".format(loss_tag),train_losses_epoch_average,idx_epoch)
             self.event_after_training_epoch(network,idx_epoch)
             if self.validate_dataloader is not None and idx_epoch%self.configs.validation_epoch_frequency==0:
@@ -299,7 +302,10 @@ class Trainer():
                         self.event_after_validation_iteration(network,idx_epoch,idx_batch)
                     if self.configs.record_epoch_loss:
                         validation_losses_epoch_average=sum(validation_losses_epoch)/len(validation_losses_epoch)
-                        info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
+                        if validation_losses_epoch_average>1e-5:
+                            info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
+                        else:
+                            info_epoch+=" validation loss:{:.3e}".format(validation_losses_epoch_average)
                         self.recorder.add_scalar("{}/validation".format(loss_tag),validation_losses_epoch_average,idx_epoch)
                     self.event_after_validation_epoch(network,idx_epoch)
             p_bar.set_description(info_epoch)

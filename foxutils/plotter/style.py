@@ -72,7 +72,10 @@ def generate_colormap_from_list(color_list: Sequence,name:str,qualitative:bool=F
         return colors.LinearSegmentedColormap.from_list(name,color_list)
 
 def infinite_colors(n_colors:int,color_list=LINE_COLOR):
-    return generate_colormap_from_list(color_list,'infinite_colors_temp',qualitative=False)(np.linspace(0,1,n_colors,endpoint=True))
+    if n_colors <= len(color_list):
+        return color_list[:n_colors]
+    else:
+        return generate_colormap_from_list(color_list,'infinite_colors_temp',qualitative=False)(np.linspace(0,1,n_colors,endpoint=True))
 
 
 def enable_print_style(font_name="Times New Roman", font_size=30, enable_latex=True):
