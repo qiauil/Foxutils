@@ -1,6 +1,6 @@
 #usr/bin/python3
 
-#version:0.0.16
+#version:0.0.17
 #last modified:20240220
 
 from . import *
@@ -9,6 +9,7 @@ import collections.abc as collections
 import torch
 from mpl_toolkits.axes_grid1 import ImageGrid
 from ..helper.coding import *
+from typing import *
 
 def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=None,ylist=None,**kwargs):
     '''
@@ -16,13 +17,13 @@ def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=
 
     Args:
         z (torch.Tensor): The input tensor.
-        ztitle (str, optional): The title of the z-axis. Defaults to "z".
-        xtitle (str, optional): The title of the x-axis. Defaults to "x".
-        ytitle (str, optional): The title of the y-axis. Defaults to "y".
+        ztitle (str, optional): The title of the z-ax_i. Defaults to "z".
+        xtitle (str, optional): The title of the x-ax_i. Defaults to "x".
+        ytitle (str, optional): The title of the y-ax_i. Defaults to "y".
         cmap (str, optional): The colormap to use. Defaults to 'viridis'.
         plot2D (bool, optional): Whether to plot a 2D figure. Defaults to False.
-        xlist (list, optional): The list of x-axis values. Defaults to None.
-        ylist (list, optional): The list of y-axis values. Defaults to None.
+        xlist (list, optional): The list of x-ax_i values. Defaults to None.
+        ylist (list, optional): The list of y-ax_i values. Defaults to None.
         kwargs: Additional keyword arguments for the plot_surface.
     '''
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"},figsize=(6, 6))
@@ -60,7 +61,9 @@ def plot_2D_ax(ax,
                transpose=False,
                x_label=None,y_label=None,title=None,title_loc="center",
                interpolation='none', aspect='auto',
-               cmap=CMAP_COOLHOT, use_sym_colormap=True,**kwargs):
+               cmap=CMAP_COOLHOT, use_sym_colormap=True,
+               show_xy_ticks=True,
+               **kwargs):
     """
     Plot a 2D field on the given axes.
 
@@ -102,6 +105,9 @@ def plot_2D_ax(ax,
         cmap=sym_colormap(np.min(data), np.max(data), cmap=cmap)
     im=ax.imshow(data, interpolation=interpolation, cmap=cmap, extent=[_x_start, _x_end, _y_start, _y_end],
                   origin='lower', aspect=aspect,**kwargs)
+    if not show_xy_ticks:
+        ax.set_xticks([])
+        ax.set_yticks([])
     if _x_label is not None:
         ax.set_xlabel(_x_label)
     if _y_label is not None:
@@ -123,11 +129,11 @@ def plot_2D(data, x_start=None, x_end=None, y_start=None, y_end=None,
 
     Parameters:
     - data: 2D array-like object representing the field data.
-    - x_start, x_end: Start and end values for the x-axis.
-    - y_start, y_end: Start and end values for the y-axis.
+    - x_start, x_end: Start and end values for the x-ax_i.
+    - y_start, y_end: Start and end values for the y-ax_i.
     - transpose: Boolean indicating whether to transpose the data.
-    - x_label: Label for the x-axis.
-    - y_label: Label for the y-axis.
+    - x_label: Label for the x-ax_i.
+    - y_label: Label for the y-ax_i.
     - title: Title of the plot.
     - title_loc: Location of the title ('center', 'left', or 'right').
     - interpolation: Interpolation method for the plot.
@@ -160,11 +166,11 @@ def plot2D_grid_ax(ax,field,xtitle="i",ytitle="j",cmap='viridis',xlist=None,ylis
     
     Args:
         field (torch.Tensor): The input tensor.
-        xtitle (str, optional): The title of the x-axis. Defaults to "j".
-        ytitle (str, optional): The title of the y-axis. Defaults to "i".
+        xtitle (str, optional): The title of the x-ax_i. Defaults to "j".
+        ytitle (str, optional): The title of the y-ax_i. Defaults to "i".
         cmap (str, optional): The colormap to use. Defaults to 'viridis'.
-        xlist (list, optional): The list of x-axis values. Defaults to None.
-        ylist (list, optional): The list of y-axis values. Defaults to None.
+        xlist (list, optional): The list of x-ax_i values. Defaults to None.
+        ylist (list, optional): The list of y-ax_i values. Defaults to None.
         vmin (float, optional): The minimum value of the colormap. Defaults to None.
         vmax (float, optional): The maximum value of the colormap. Defaults to None.
         colorbar (bool, optional): Whether to show the colorbar. Defaults to True.
@@ -227,7 +233,7 @@ def show_image_from_tensor(image_tensor,title=""):
         image_tensor[c] = (image_tensor[c]-minv)/(maxv-minv)
     plt.title(title,y=-0.1)
     plt.imshow(image_tensor.permute(1,2,0))
-    plt.axis('off')
+    plt.ax_i('off')
 
 class ChannelPloter():
     """
@@ -235,7 +241,7 @@ class ChannelPloter():
 
     Methods:
     - fig_save_path(self, path): Sets the figure save path.
-    - plot(self, fields, channel_names, channel_units, case_names, title, transpose, inverse_y, cmap, mask, size_subfig, xspace, yspace, cbar_pad, title_position, redraw_ticks, num_colorbar_value, minvs, maxvs, tick_format, data_scale, rotate_colorbar_with_oneinput, subfigure_index, save_name, use_sym_colormap): Plots the fields.
+    - plot(self, fields, channel_names, channel_units, case_names, title, transpose, inverse_y, cmap, mask, size_subfig, xspace, yspace, cbar_pad, title_position, redraw_cticks, num_colorbar_value, minvs, maxvs, ctick_format, data_scale, rotate_colorbar_with_oneinput, subfigure_index, save_name, use_sym_colormap): Plots the fields.
     """
     
     def __init__(self) -> None:
@@ -359,164 +365,197 @@ class ChannelPloter():
         """
         self.__fig_save_path = path  
         
-    def plot(self, fields, channel_names=None, channel_units=None, case_names=None, title="", transpose=False, inverse_y=False, cmap=CMAP_COOLHOT, mask=None, size_subfig=3.5, xspace=0.7, yspace=0.1, cbar_pad=0.1, title_position=0, redraw_ticks=True, num_colorbar_value=4, minvs=None, maxvs=None, tick_format=None, data_scale=None, rotate_colorbar_with_oneinput=False, subfigure_index=None, save_name=None, use_sym_colormap=True):
-        """
-        Plots the fields.
+    def plot(self, fields: torch.Tensor|np.ndarray|Sequence,
+                 channel_names:Optional[Sequence]=None, channel_units:Optional[Sequence]=None, 
+                 case_names:Optional[Sequence]=None, 
+                 title:str="", title_position:float=0.0,
+                 transpose:bool=False, inverse_y:bool=False,aspect='auto',
+                 data_scale:Optional[Sequence]=None, mask=None, 
+                 size_subfig:float=3.5, xspace:float=0.7, yspace:float=0.1, 
+                 x_start:Optional[float]=None, x_end:Optional[float]=None, y_start:Optional[float]=None, y_end:Optional[float]=None,
+                 minvs:Optional[Sequence]=None, maxvs:Optional[Sequence]=None,
+                 cmap=CMAP_COOLHOT, use_sym_colormap:bool=True,
+                 cbar_pad:float=0.1, redraw_cticks:bool=True, num_colorbar_value:int=4, ctick_format:Optional[str]=None, 
+                 rotate_colorbar_with_oneinput:bool=False, 
+                 subfigure_index:Optional[Sequence]=None, 
+                 save_name:Optional[str]=None, 
+                 show_x_y_ticks:bool=False):
+            """
+            Plot the fields.
 
-        Args:
-        - fields: The input fields.
-        - channel_names: The names of the channels.
-        - channel_units: The units of the channels.
-        - case_names: The names of the cases.
-        - title: The title of the plot.
-        - transpose: Whether to transpose the fields.
-        - inverse_y: Whether to invert the y-axis.
-        - cmap: The colormap to use.
-        - mask: The mask for the fields.
-        - size_subfig: The size of each subfigure.
-        - xspace: The spacing between subfigures along the x-axis.
-        - yspace: The spacing between subfigures along the y-axis.
-        - cbar_pad: The padding of the colorbar.
-        - title_position: The position of the title.
-        - redraw_ticks: Whether to redraw the colorbar ticks.
-        - num_colorbar_value: The number of colorbar values.
-        - minvs: The minimum values for each field.
-        - maxvs: The maximum values for each field.
-        - tick_format: The format of the colorbar ticks.
-        - data_scale: The scale of the data for each channel.
-        - rotate_colorbar_with_oneinput: Whether to rotate the colorbar when there is only one input.
-        - subfigure_index: The index of the subfigure.
-        - save_name: The name to save the figure.
-        - use_sym_colormap: Whether to use a symmetric colormap.
-        """
-        fields = self.__cat_fields(self.__type_transform(fields))
-        if mask is not None:
-            mask = self.__generate_mask(mask, transpose=transpose)
-        num_cases = fields.shape[0]
-        num_channels = fields.shape[1]
-        
-        channel_names = default(channel_names, ["channel {}".format(i) for i in range(num_channels)])
-        channel_units = default(channel_units, ["" for i in range(num_channels)])
-        case_names = default(case_names, ["case {}".format(i) for i in range(num_cases)])
-        data_scale = default(data_scale, [1 for i in range(num_channels)])
-        fields = np.concatenate([fields[:, i:i+1, :, :] * data_scale[i] for i in range(num_channels)], 1)
-        mins, maxs = self.__find_min_max(fields, minvs, maxvs)
-        
-        if num_cases == 1 and rotate_colorbar_with_oneinput:
-            cbar_location = "right"
-            cbar_mode = 'each'
-            ticklocation = "right"
-        else:
-            cbar_location = "top"
-            cbar_mode = 'edge'
-            ticklocation = "top" 
-        fig = plt.figure(figsize=(size_subfig * num_channels, size_subfig * num_cases))
-        grid = ImageGrid(fig, 111,
-                        nrows_ncols=(num_cases, num_channels),
-                        axes_pad=(xspace, yspace),
-                        share_all=True,
-                        cbar_location=cbar_location,
-                        cbar_mode=cbar_mode,
-                        direction='row',
-                        cbar_pad=cbar_pad
-                        )
-        im_cb = []
-        if use_sym_colormap:
-            colormaps = []
-            for i in range(num_channels):
-                colormaps.append(sym_colormap(mins[i], maxs[i], cmap=cmap))
-                
-        for i, axis in enumerate(grid):
-            i_row = i // num_channels
-            i_column = i % num_channels
-            datai = fields[i_row, i_column]
-            if transpose:
-                datai = datai.T
-            if use_sym_colormap:
-                im = axis.imshow(datai, colormaps[i_column], vmin=mins[i_column], vmax=maxs[i_column])
-            else:
-                im = axis.imshow(datai, cmap, vmin=mins[i_column], vmax=maxs[i_column])
-            if i < num_channels:
-                im_cb.append(im)
-                    
+            Args:
+                fields (torch.Tensor|np.ndarray|Sequence): The fields to be plotted.
+                channel_names (Optional[Sequence], optional): The names of the channels. Defaults to None.
+                channel_units (Optional[Sequence], optional): The units of the channels. Defaults to None.
+                case_names (Optional[Sequence], optional): The names of the cases. Defaults to None.
+                title (str, optional): The title of the plot. Defaults to "".
+                title_position (float, optional): The position of the title. Defaults to 0.0.
+                transpose (bool, optional): Whether to transpose the fields. Defaults to False.
+                inverse_y (bool, optional): Whether to invert the y-axis. Defaults to False.
+                aspect (str, optional): The aspect ratio of the plot. Default is 'auto'.
+                data_scale (Optional[Sequence], optional): The scale of the data. Defaults to None.
+                mask (optional): The mask to be applied to the plot. Defaults to None.
+                size_subfig (float, optional): The size of the subfigure. Defaults to 3.5.
+                xspace (float, optional): The space between x-axis labels. Defaults to 0.7.
+                yspace (float, optional): The space between y-axis labels. Defaults to 0.1.
+                x_start (Optional[float], optional): The start value of the x-axis. Defaults to None.
+                x_end (Optional[float], optional): The end value of the x-axis. Defaults to None.
+                y_start (Optional[float], optional): The start value of the y-axis. Defaults to None.
+                y_end (Optional[float], optional): The end value of the y-axis. Defaults to None.
+                minvs (Optional[Sequence], optional): The minimum values for the colorbar. Defaults to None.
+                maxvs (Optional[Sequence], optional): The maximum values for the colorbar. Defaults to None.
+                cmap (optional): The colormap to be used. Defaults to CMAP_COOLHOT.
+                use_sym_colormap (bool, optional): Whether to use a symmetric colormap. Defaults to True.
+                cbar_pad (float, optional): The padding of the colorbar. Defaults to 0.1.
+                redraw_cticks (bool, optional): Whether to redraw the colorbar ticks. Defaults to True.
+                num_colorbar_value (int, optional): The number of colorbar values. Defaults to 4.
+                ctick_format (Optional[str], optional): The format of the colorbar ticks. Defaults to None.
+                rotate_colorbar_with_oneinput (bool, optional): Whether to rotate the colorbar with one input. Defaults to False.
+                subfigure_index (Optional[Sequence], optional): The index of the subfigure. Defaults to None.
+                save_name (Optional[str], optional): The name of the saved plot. Defaults to None.
+                show_x_y_ticks (bool, optional): Whether to show x and y ticks. Defaults to False.
+            """
+            fields = self.__cat_fields(self.__type_transform(fields))
             if mask is not None:
-                axis.imshow(mask)  
-            if inverse_y:
-                axis.invert_yaxis()      
-            axis.set_yticks([])
-            axis.set_xticks([])
-            if i_column == 0:
-                axis.set_ylabel(case_names[i_row])
-            if i_row == num_cases - 1:
-                axis.set_xlabel(channel_names[i_column])   
+                mask = self.__generate_mask(mask, transpose=transpose)
+            num_cases = fields.shape[0]
+            num_channels = fields.shape[1]
+            
+            channel_names = default(channel_names, ["channel {}".format(i) for i in range(num_channels)])
+            channel_units = default(channel_units, ["" for i in range(num_channels)])
+            case_names = default(case_names, ["case {}".format(i) for i in range(num_cases)])
+            data_scale = default(data_scale, [1 for i in range(num_channels)])
+            fields = np.concatenate([fields[:, i:i+1, :, :] * data_scale[i] for i in range(num_channels)], 1)
+            mins, maxs = self.__find_min_max(fields, minvs, maxvs)
+            
+            if num_cases == 1 and rotate_colorbar_with_oneinput:
+                cbar_location = "right"
+                cbar_mode = 'each'
+                ticklocation = "right"
+            else:
+                cbar_location = "top"
+                cbar_mode = 'edge'
+                ticklocation = "top" 
+            
+            fig = plt.figure(figsize=(size_subfig * num_channels, size_subfig * num_cases))
+            grid = ImageGrid(fig, 111,
+                            nrows_ncols=(num_cases, num_channels),
+                            axes_pad=(xspace, yspace),
+                            share_all=True,
+                            cbar_location=cbar_location,
+                            cbar_mode=cbar_mode,
+                            direction='row',
+                            cbar_pad=cbar_pad
+                            )
+            im_cb = []
+              
+            for i, ax_i in enumerate(grid):
+                i_row = i // num_channels
+                i_column = i % num_channels
+                datai = fields[i_row, i_column]
+                if i_column == 0:
+                    y_label=case_names[i_row]
+                else:
+                    y_label=None
+                if i_row == num_cases - 1:
+                    x_label=channel_names[i_column]  
+                else:
+                    x_label=None            
+                im=plot_2D_ax(
+                    ax=ax_i,data=datai,
+                    x_start=x_start,x_end=x_end,y_start=y_start,y_end=y_end,
+                    transpose=transpose,
+                    use_sym_colormap=use_sym_colormap,
+                    show_xy_ticks=show_x_y_ticks,
+                    x_label=x_label,y_label=y_label,
+                    cmap=cmap,
+                    aspect=aspect,
+                )
+                if i < num_channels:
+                    im_cb.append(im)      
+                if mask is not None:
+                    ax_i.imshow(mask)  
+                if inverse_y:
+                    ax_i.invert_yax_i() 
 
-        for i in range(num_channels):
-            cb = grid.cbar_axes[i].colorbar(im_cb[i], label=channel_units[i], ticklocation=ticklocation, format=tick_format)
-            cb.ax.minorticks_on()
-            if redraw_ticks:
-                cb.set_ticks(np.linspace(mins[i], maxs[i], num_colorbar_value, endpoint=True))      
-        fig.suptitle(title, y=title_position)
-        if subfigure_index is not None:
-            plt.suptitle(subfigure_index, x=0.01, y=0.88, fontproperties="Times New Roman")
-        if save_name is not None:
-            plt.savefig(self.__fig_save_path + save_name + ".svg", bbox_inches='tight')
-        plt.show()
+            for i in range(num_channels):
+                cb = grid.cbar_axes[i].colorbar(im_cb[i], label=channel_units[i], ticklocation=ticklocation, format=ctick_format)
+                cb.ax.minorticks_on()
+                if redraw_cticks:
+                    cb.set_ticks(np.linspace(mins[i], maxs[i], num_colorbar_value, endpoint=True))      
+            fig.suptitle(title, y=title_position)
+            if subfigure_index is not None:
+                plt.suptitle(subfigure_index, x=0.01, y=0.88, fontproperties="Times New Roman")
+            if save_name is not None:
+                plt.savefig(self.__fig_save_path + save_name + ".svg", bbox_inches='tight')
+            plt.show()
 
-field_plotter=ChannelPloter()
+channel_plotter=ChannelPloter()
 
-def show_each_channel(
-            fields,
-            channel_names=None,channel_units=None,case_names=None,title="",
-            transpose=False,inverse_y=False,
-            cmap=CMAP_COOLHOT,
-            mask=None,
-            size_subfig=3.5,xspace=0.7,yspace=0.1,cbar_pad=0.1,
-            title_position=0,
-            redraw_ticks=True,num_colorbar_value=4,minvs=None,maxvs=None,tick_format=None,
-            data_scale=None,
-            rotate_colorbar_with_oneinput=False,
-            save_name=None,
-            use_sym_colormap=False
-            ):
-    '''
-    Show each channel of the fields. Use an instance of ChannelPloter to plot the fields. See ChannelPloter.plot() for more details.
+def show_each_channel(fields: torch.Tensor|np.ndarray|Sequence,
+                 channel_names:Optional[Sequence]=None, channel_units:Optional[Sequence]=None, 
+                 case_names:Optional[Sequence]=None, 
+                 title:str="", title_position:float=0.0,
+                 transpose:bool=False, inverse_y:bool=False, aspect="auto",
+                 data_scale:Optional[Sequence]=None, mask=None, 
+                 size_subfig:float=3.5, xspace:float=0.7, yspace:float=0.1, 
+                 x_start:Optional[float]=None, x_end:Optional[float]=None, y_start:Optional[float]=None, y_end:Optional[float]=None,
+                 minvs:Optional[Sequence]=None, maxvs:Optional[Sequence]=None,
+                 cmap=CMAP_COOLHOT, use_sym_colormap:bool=True,
+                 cbar_pad:float=0.1, redraw_cticks:bool=True, num_colorbar_value:int=4, ctick_format:Optional[str]=None, 
+                 rotate_colorbar_with_oneinput:bool=False, 
+                 subfigure_index:Optional[Sequence]=None, 
+                 save_name:Optional[str]=None, 
+                 show_x_y_ticks:bool=False):
+    """
+    Plot the fields.
 
     Args:
-        fields: The input fields.
-        channel_names: The names of the channels.
-        channel_units: The units of the channels.
-        case_names: The names of the cases.
-        title: The title of the plot.
-        transpose: Whether to transpose the fields.
-        inverse_y: Whether to invert the y-axis.
-        cmap: The colormap to use.
-        mask: The mask for the fields.
-        size_subfig: The size of each subfigure.
-        xspace: The spacing between subfigures along the x-axis.
-        yspace: The spacing between subfigures along the y-axis.
-        cbar_pad: The padding of the colorbar.
-        title_position: The position of the title.
-        redraw_ticks: Whether to redraw the colorbar ticks.
-        num_colorbar_value: The number of colorbar values.
-        minvs: The minimum values for each field.
-        maxvs: The maximum values for each field.
-        tick_format: The format of the colorbar ticks.
-        data_scale: The scale of the data for each channel.
-        rotate_colorbar_with_oneinput: Whether to rotate the colorbar when there is only one input.
-        save_name: The name to save the figure.
-        use_sym_colormap: Whether to use a symmetric colormap.
-    '''
-    field_plotter.plot(
-            fields=fields,
-            channel_names=channel_names,channel_units=channel_units,case_names=case_names,title=title,
-            transpose=transpose,inverse_y=inverse_y,
-            cmap=cmap,
-            mask=mask,
-            size_subfig=size_subfig,xspace=xspace,yspace=yspace,cbar_pad=cbar_pad,
-            title_position=title_position,
-            redraw_ticks=redraw_ticks,num_colorbar_value=num_colorbar_value,minvs=minvs,maxvs=maxvs,tick_format=tick_format,
-            data_scale=data_scale,
-            rotate_colorbar_with_oneinput=rotate_colorbar_with_oneinput,
-            save_name=save_name,
-            use_sym_colormap=use_sym_colormap
+        fields (torch.Tensor|np.ndarray|Sequence): The fields to be plotted.
+        channel_names (Optional[Sequence], optional): The names of the channels. Defaults to None.
+        channel_units (Optional[Sequence], optional): The units of the channels. Defaults to None.
+        case_names (Optional[Sequence], optional): The names of the cases. Defaults to None.
+        title (str, optional): The title of the plot. Defaults to "".
+        title_position (float, optional): The position of the title. Defaults to 0.0.
+        transpose (bool, optional): Whether to transpose the fields. Defaults to False.
+        inverse_y (bool, optional): Whether to invert the y-axis. Defaults to False.
+        aspect (str, optional): The aspect ratio of the plot. Default is 'auto'.
+        data_scale (Optional[Sequence], optional): The scale of the data. Defaults to None.
+        mask (optional): The mask to be applied to the plot. Defaults to None.
+        size_subfig (float, optional): The size of the subfigure. Defaults to 3.5.
+        xspace (float, optional): The space between x-axis labels. Defaults to 0.7.
+        yspace (float, optional): The space between y-axis labels. Defaults to 0.1.
+        x_start (Optional[float], optional): The start value of the x-axis. Defaults to None.
+        x_end (Optional[float], optional): The end value of the x-axis. Defaults to None.
+        y_start (Optional[float], optional): The start value of the y-axis. Defaults to None.
+        y_end (Optional[float], optional): The end value of the y-axis. Defaults to None.
+        minvs (Optional[Sequence], optional): The minimum values for the colorbar. Defaults to None.
+        maxvs (Optional[Sequence], optional): The maximum values for the colorbar. Defaults to None.
+        cmap (optional): The colormap to be used. Defaults to CMAP_COOLHOT.
+        use_sym_colormap (bool, optional): Whether to use a symmetric colormap. Defaults to True.
+        cbar_pad (float, optional): The padding of the colorbar. Defaults to 0.1.
+        redraw_cticks (bool, optional): Whether to redraw the colorbar ticks. Defaults to True.
+        num_colorbar_value (int, optional): The number of colorbar values. Defaults to 4.
+        ctick_format (Optional[str], optional): The format of the colorbar ticks. Defaults to None.
+        rotate_colorbar_with_oneinput (bool, optional): Whether to rotate the colorbar with one input. Defaults to False.
+        subfigure_index (Optional[Sequence], optional): The index of the subfigure. Defaults to None.
+        save_name (Optional[str], optional): The name of the saved plot. Defaults to None.
+        show_x_y_ticks (bool, optional): Whether to show x and y ticks. Defaults to False.
+    """
+    channel_plotter.plot(
+        fields=fields,
+        channel_names=channel_names, channel_units=channel_units,
+        case_names=case_names,
+        title=title, title_position=title_position,
+        transpose=transpose, inverse_y=inverse_y,aspect=aspect,
+        data_scale=data_scale, mask=mask,
+        size_subfig=size_subfig, xspace=xspace, yspace=yspace,
+        x_start=x_start, x_end=x_end, y_start=y_start, y_end=y_end,
+        minvs=minvs, maxvs=maxvs,
+        cmap=cmap, use_sym_colormap=use_sym_colormap,
+        cbar_pad=cbar_pad, redraw_cticks=redraw_cticks, num_colorbar_value=num_colorbar_value, ctick_format=ctick_format,
+        rotate_colorbar_with_oneinput=rotate_colorbar_with_oneinput,
+        subfigure_index=subfigure_index,
+        save_name=save_name,
+        show_x_y_ticks=show_x_y_ticks
     )
