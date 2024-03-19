@@ -1,7 +1,8 @@
 # usr/bin/python3
 
-#version:0.0.13
-#last modified:20240307
+#version:0.0.14
+#last modified:20240319
+#TODO: loss prediction
 
 import os,torch,time,math,logging,yaml
 import torch.nn as nn
@@ -289,25 +290,26 @@ class Trainer():
                     info_epoch+=" train loss:{:.3e}".format(train_losses_epoch_average)
                 self.recorder.add_scalar("{}/train".format(loss_tag),train_losses_epoch_average,idx_epoch)
             self.event_after_training_epoch(network,idx_epoch)
-            if self.validate_dataloader is not None and idx_epoch%self.configs.validation_epoch_frequency==0:
-                validation_losses_epoch=[]
-                network.eval()
-                with torch.no_grad():
-                    for idx_batch,batched_data in enumerate(self.validate_dataloader):
-                        loss_validation=self.validation_step(network=network,batched_data=batched_data,idx_batch=idx_batch,num_batches=num_batches_validation,idx_epoch=idx_epoch,num_epoch=self.configs.epochs)
-                        if self.configs.record_epoch_loss or self.configs.record_iteration_loss:
-                            validation_losses_epoch.append(loss_validation.item())
-                        if self.configs.record_iteration_loss:
-                            self.recorder.add_scalar("Loss_iteration/validation",validation_losses_epoch[-1],(idx_epoch-1)*num_batches_validation+idx_batch)
-                        self.event_after_validation_iteration(network,idx_epoch,idx_batch)
-                    if self.configs.record_epoch_loss:
-                        validation_losses_epoch_average=sum(validation_losses_epoch)/len(validation_losses_epoch)
-                        if validation_losses_epoch_average>1e-5:
-                            info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
-                        else:
-                            info_epoch+=" validation loss:{:.3e}".format(validation_losses_epoch_average)
-                        self.recorder.add_scalar("{}/validation".format(loss_tag),validation_losses_epoch_average,idx_epoch)
-                    self.event_after_validation_epoch(network,idx_epoch)
+            if self.validate_dataloader is not None:
+                if idx_epoch%self.configs.validation_epoch_frequency==0 or idx_epoch==self.configs.epochs:
+                    validation_losses_epoch=[]
+                    network.eval()
+                    with torch.no_grad():
+                        for idx_batch,batched_data in enumerate(self.validate_dataloader):
+                            loss_validation=self.validation_step(network=network,batched_data=batched_data,idx_batch=idx_batch,num_batches=num_batches_validation,idx_epoch=idx_epoch,num_epoch=self.configs.epochs)
+                            if self.configs.record_epoch_loss or self.configs.record_iteration_loss:
+                                validation_losses_epoch.append(loss_validation.item())
+                            if self.configs.record_iteration_loss:
+                                self.recorder.add_scalar("Loss_iteration/validation",validation_losses_epoch[-1],(idx_epoch-1)*num_batches_validation+idx_batch)
+                            self.event_after_validation_iteration(network,idx_epoch,idx_batch)
+                        if self.configs.record_epoch_loss:
+                            validation_losses_epoch_average=sum(validation_losses_epoch)/len(validation_losses_epoch)
+                            if validation_losses_epoch_average>1e-5:
+                                info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
+                            else:
+                                info_epoch+=" validation loss:{:.3e}".format(validation_losses_epoch_average)
+                            self.recorder.add_scalar("{}/validation".format(loss_tag),validation_losses_epoch_average,idx_epoch)
+                        self.event_after_validation_epoch(network,idx_epoch)
             p_bar.set_description(info_epoch)
             self.lr_scheduler.step()
             if idx_epoch%self.configs.save_epoch==0:
@@ -323,6 +325,9 @@ class Trainer():
         torch.save(network.state_dict(),self.project_path+"trained_network_weights.pt")
         self.logger.info("Training finished!")
         total_time=time.time()-start_time
+        self.logger.info("Final training loss: {}".format(train_losses_epoch_average))
+        if self.validate_dataloader is not None:
+            self.logger.info("Final validation loss: {}".format(validation_losses_epoch_average))
         self.logger.info("Total running time: {}".format(seconds_to_hms(total_time)))
         self.logger.info("Total training time: {}".format(seconds_to_hms(training_time)))
         self.logger.info("Training speed: {:.5f} s/iteration".format(training_time/(self.configs.epochs-self.start_epoch+1)/num_batches_train))
