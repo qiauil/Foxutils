@@ -262,6 +262,8 @@ class Trainer():
             loss_tag="Loss_epoch"
         else:
             loss_tag="Loss"
+        losses_train_final_epochs=[]
+        losses_validation_final_epochs=[]
         network.to(self.configs.device)
         self.event_before_training(network)
         self.logger.info("Training start!")
@@ -320,6 +322,10 @@ class Trainer():
                     "lr_scheduler":self.lr_scheduler.state_dict()
                 }
                 torch.save(checkpoint_now,self.checkpoints_path+"checkpoint_{}.pt".format(idx_epoch))
+            if self.configs.record_final_losses and idx_epoch>self.configs.epochs-self.configs.final_record_epoch:
+                losses_train_final_epochs.append([idx_epoch,train_losses_epoch_average])
+                if self.validate_dataloader is not None:
+                    losses_validation_final_epochs.append([idx_epoch,validation_losses_epoch_average])
         self.event_after_training(network)
         network.to("cpu")
         torch.save(network.state_dict(),self.project_path+"trained_network_weights.pt")
@@ -328,6 +334,30 @@ class Trainer():
         self.logger.info("Final training loss: {}".format(train_losses_epoch_average))
         if self.validate_dataloader is not None:
             self.logger.info("Final validation loss: {}".format(validation_losses_epoch_average))
+        if self.configs.record_final_losses:
+            losses=[t_loss[1] for t_loss in losses_train_final_epochs]
+            self.logger.info(
+                "Training losses of the final {} epochs: min:{:.5e}, max:{:.5e}, average:{:.5e}, median:{:.5e}".format(
+                    len(losses),
+                    min(losses),max(losses),
+                    sum(losses)/len(losses),numpy.median(losses))
+                )
+            with open(self.project_path+"final_losses.txt","w") as f:
+                if self.validate_dataloader is not None:
+                    f.write("Epoch\tTrain loss\tValidation loss\n")
+                    for i in range(len(losses_train_final_epochs)):
+                        f.write("{}\t{}\t{}\n".format(losses_train_final_epochs[i][0],losses_train_final_epochs[i][1],losses_validation_final_epochs[i][1]))
+                    v_losses=[v_loss[1] for v_loss in losses_validation_final_epochs]
+                    self.logger.info(
+                        "Validation losses of the final {} epochs: min:{:.5e}, max:{:.5e}, average:{:.5e}, median:{:.5e}".format(
+                            len(v_losses),
+                            min(v_losses),max(v_losses),
+                            sum(v_losses)/len(v_losses),numpy.median(v_losses))
+                        )
+                else:
+                    f.write("Epoch\tTrain loss\n")
+                    for i in range(len(losses_train_final_epochs)):
+                        f.write("{}\t{}\n".format(losses_train_final_epochs[i][0],losses_train_final_epochs[i][1]))
         self.logger.info("Total running time: {}".format(seconds_to_hms(total_time)))
         self.logger.info("Total training time: {}".format(seconds_to_hms(training_time)))
         self.logger.info("Training speed: {:.5f} s/iteration".format(training_time/(self.configs.epochs-self.start_epoch+1)/num_batches_train))
@@ -361,6 +391,8 @@ class Trainer():
         self.configs_handler.add_config_item("record_epoch_loss",default_value=True,value_type=bool,description="Whether to record epoch loss.")
         self.configs_handler.add_config_item("record_learning_rate",default_value=True,value_type=bool,description="Whether to record learning rate.")
         self.configs_handler.add_config_item("save_epoch",default_value_func=lambda configs:configs["epochs"]//10,value_type=int,description="Frequency of saving checkpoints.")
+        self.configs_handler.add_config_item("record_final_losses",default_value=True,value_type=bool,description="Whether to record losses at the final period of training. The number of epochs can be set through `final_record_epoch`")
+        self.configs_handler.add_config_item("final_record_epoch",default_value=100,value_type=int,description="Number of epochs to record at the end of training")
         self.set_configs_type_dataloader()
         
     def set_configs_type_dataloader(self):
