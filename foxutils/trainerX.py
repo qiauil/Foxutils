@@ -1,6 +1,6 @@
 # usr/bin/python3
 
-#version:0.0.14
+#version:0.0.15
 #last modified:20240319
 #TODO: loss prediction
 
@@ -788,6 +788,9 @@ class TrainedProject():
     def get_records(self,only_path=False):
         '''
         Get the records.
+        This will return an Tensorboard EventAccumulator or the path of the tensorboard records.
+        Note that Tensorboard will only read part of the records if the records are too large.
+        If you want to read the full records, please use read_full_records() function.
 
         Args:
             only_path: bool, whether only to return the path of the records, default is False.
@@ -805,6 +808,51 @@ class TrainedProject():
             ea= event_accumulator.EventAccumulator(records_path)
             ea.Reload()
             return ea
+    
+    def get_full_records(self, key, return_wall_time=False):
+        """
+        Reads the full records from the specified key. Note that this function requires TensorFlow to be installed.
+
+        Args:
+            key (str): The tag key to filter the records.
+            return_wall_time (bool, optional): Whether to return the wall times of each record. 
+                Defaults to False.
+
+        Returns:
+            tuple: A tuple containing the steps and losses from the records. If `return_wall_time` 
+                is True, it also includes the wall times.
+
+        Raises:
+            ImportError: If TensorFlow is not installed.
+            FileNotFoundError: If no records are found in the specified record path.
+
+        """
+        try:
+            import tensorflow as tf
+        except ImportError:
+            raise ImportError("Please install tensorflow to use this function.")
+        record_path=self.project_path+"records"+os.sep
+        logs=os.listdir(record_path)
+        if len(logs)==0:
+            raise FileNotFoundError("No records found in {}".format(record_path))
+        if len(logs)>1:
+            print("Warning: More than one records found in {}, using the first one".format(record_path),flush=True)
+        record_path=os.path.join(record_path,logs[0])
+        v_losses=[]
+        steps=[]
+        if return_wall_time:
+            wall_times=[]
+        for e in tf.compat.v1.train.summary_iterator(record_path):
+            for v in e.summary.value:
+                if v.tag == key:
+                    v_losses.append(v.simple_value)
+                    steps.append(e.step)
+                    if return_wall_time:
+                        wall_times.append(e.wall_time)
+        if return_wall_time:
+            return steps,v_losses,wall_times
+        else:
+            return steps,v_losses
     
     def get_saved_network(self,check_point=None):
         '''
