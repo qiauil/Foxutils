@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.15
-#last modified:20240319
+#version:0.0.16
+#last modified:20240421
 #TODO: loss prediction
 
 import os,torch,time,math,logging,yaml
@@ -897,13 +897,13 @@ class TrainedProjects():
         Parameters:
         - projects_path: The path to the directory containing the trained projects.
         """
-        folder_names = [folder_name for folder_name in os.listdir(projects_path) if os.path.isdir(projects_path+folder_name)]
+        folder_names = [folder_name for folder_name in os.listdir(projects_path) if os.path.isdir(os.path.join(projects_path, folder_name))]
         self.folders_name = sorted(folder_names,  key=lambda x: os.path.getmtime(os.path.join(projects_path, x)))
         for folder in self.folders_name:
-            path=projects_path+folder+os.sep
-            if not os.path.exists(path+"configs.yaml"):
+            path=os.path.join(projects_path,folder)
+            if not os.path.exists(os.path.join(path,"configs.yaml")):
                 raise FileNotFoundError("No configs.yaml found in {}".format(path))
-        self.folders_name = [projects_path+folder+os.sep for folder in self.folders_name]
+        self.folders_name = [os.path.join(projects_path,folder) for folder in self.folders_name]
             
     def __len__(self):
         """
