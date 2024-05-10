@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.16
-#last modified:20240421
+#version:0.0.17
+#last modified:20240424
 #TODO: loss prediction
 
 import os,torch,time,math,logging,yaml
@@ -254,6 +254,7 @@ class Trainer():
             checkpoint_file_path=self.checkpoints_path+"checkpoint_{}.pt".format(self.start_epoch-1)
             self.logger.info("Loading checkpoint from {}".format(checkpoint_file_path))
             checkpoint=torch.load(checkpoint_file_path)
+            set_random_state(checkpoint["random_state"])
             network.load_state_dict(checkpoint["network"])
             self.optimizer.load_state_dict(checkpoint["optimizer"])
             self.lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
@@ -319,7 +320,8 @@ class Trainer():
                     "epoch":idx_epoch,
                     "network":network.state_dict(),
                     "optimizer":self.optimizer.state_dict(),
-                    "lr_scheduler":self.lr_scheduler.state_dict()
+                    "lr_scheduler":self.lr_scheduler.state_dict(),
+                    "random_state":get_random_state()
                 }
                 torch.save(checkpoint_now,self.checkpoints_path+"checkpoint_{}.pt".format(idx_epoch))
             if self.configs.record_final_losses and idx_epoch>self.configs.epochs-self.configs.final_record_epoch:

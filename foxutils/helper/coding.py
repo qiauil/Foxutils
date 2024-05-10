@@ -325,3 +325,33 @@ def set_random_seed(random_seed):
         torch.cuda.manual_seed_all(random_seed)
         np.random.seed(random_seed)
         random.seed(random_seed)
+
+def get_random_state():
+        """
+        Get the random state of various libraries.
+
+        Returns:
+                dict: A dictionary containing the random state of various libraries.
+        """
+        random_state={
+                "torch":torch.get_rng_state(),
+                "torch_cuda":torch.cuda.get_rng_state(),
+                "numpy":np.random.get_state(),
+                "random":random.getstate()
+        }
+        return random_state
+
+def set_random_state(random_state):
+        """
+        Set the random state for various libraries.
+
+        Args:
+                random_state (dict): A dictionary containing the random state of various libraries.
+
+        Returns:
+                None
+        """
+        torch.set_rng_state(random_state["torch"])
+        torch.cuda.set_rng_state(random_state["torch_cuda"])
+        np.random.set_state(random_state["numpy"])
+        random.setstate(random_state["random"])

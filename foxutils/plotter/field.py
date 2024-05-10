@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.17
-#last modified:20240220
+#version:0.0.18
+#last modified:20240510
 
 from . import *
 from .style import *
@@ -10,6 +10,7 @@ import torch
 from mpl_toolkits.axes_grid1 import ImageGrid
 from ..helper.coding import *
 from typing import *
+import os
 
 def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=None,ylist=None,**kwargs):
     '''
@@ -243,9 +244,6 @@ class ChannelPloter():
     - fig_save_path(self, path): Sets the figure save path.
     - plot(self, fields, channel_names, channel_units, case_names, title, transpose, inverse_y, cmap, mask, size_subfig, xspace, yspace, cbar_pad, title_position, redraw_cticks, num_colorbar_value, minvs, maxvs, ctick_format, data_scale, rotate_colorbar_with_oneinput, subfigure_index, save_name, use_sym_colormap): Plots the fields.
     """
-    
-    def __init__(self) -> None:
-        self.__fig_save_path="./output_figs/"
 
     def __type_transform(self, fields):
         """
@@ -355,15 +353,6 @@ class ChannelPloter():
             return torch.cat([np.expand_dims(RGB, 2), np.expand_dims(RGB, 2), np.expand_dims(RGB, 2), np.expand_dims(mask.T, 2)], -1)
         else:
             return torch.cat([np.expand_dims(RGB, 2), np.expand_dims(RGB, 2), np.expand_dims(RGB, 2), np.expand_dims(mask, 2)], -1)
-
-    def fig_save_path(self, path):
-        """
-        Sets the figure save path.
-
-        Args:
-        - path: The path to save the figures.
-        """
-        self.__fig_save_path = path  
         
     def plot(self, fields: torch.Tensor|np.ndarray|Sequence,
                  channel_names:Optional[Sequence]=None, channel_units:Optional[Sequence]=None, 
@@ -487,7 +476,8 @@ class ChannelPloter():
             if subfigure_index is not None:
                 plt.suptitle(subfigure_index, x=0.01, y=0.88, fontproperties="Times New Roman")
             if save_name is not None:
-                plt.savefig(self.__fig_save_path + save_name + ".svg", bbox_inches='tight')
+                os.makedirs(os.path.dirname(save_name), exist_ok=True)
+                plt.savefig(save_name, bbox_inches='tight')
             plt.show()
 
 channel_plotter=ChannelPloter()
