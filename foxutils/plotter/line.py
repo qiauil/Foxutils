@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.7
-#last modified:20240220
+#version:0.0.8
+#last modified:20240512
 
 
 from . import *
@@ -35,6 +35,16 @@ class FormatLinePlotter():
         self.__xscale="linear"
         self.__yscale="linear"
         self.__grid=False
+        self.__show_legend=True
+        
+    def show_legend(self,show: bool=True):
+        """
+        Sets whether to show the legend.
+
+        Parameters:
+        - show: Whether to show the legend.
+        """
+        self.__show_legend=show
 
     def scatter(self,x,y,label:Optional[str]=None,color_style:Union[None,int,str]=None,mark_style:Union[None,int,str]=None,marker_size=10,alpha=1,**kwargs):
         """
@@ -372,7 +382,7 @@ class FormatLinePlotter():
                     num_legend+=1     
             else:
                 raise Exception("unknow draw type: {}".format(name))
-        if num_legend!=0:
+        if num_legend!=0 and self.__show_legend:
             ncol,legend_y=self.get_legend_pos(num_legend)      
             plt.legend(handles=figs, labels=labels,bbox_to_anchor=(0., legend_y, 1., .102), mode="expand", borderaxespad=0.,ncol=ncol)
         if self.__subfigure_index is not None:

@@ -1,6 +1,6 @@
 # usr/bin/python3
 
-#version:0.0.17
+#version:0.0.18
 #last modified:20240424
 #TODO: loss prediction
 
@@ -269,6 +269,8 @@ class Trainer():
         self.event_before_training(network)
         self.logger.info("Training start!")
         p_bar=tqdm(range(self.start_epoch,self.configs.epochs+1))
+        best_validation_loss=None
+        best_validation_loss_epoch=None
         for idx_epoch in p_bar:
             train_losses_epoch=[]
             lr_now=self.optimizer.param_groups[0]["lr"]
@@ -305,8 +307,14 @@ class Trainer():
                             if self.configs.record_iteration_loss:
                                 self.recorder.add_scalar("Loss_iteration/validation",validation_losses_epoch[-1],(idx_epoch-1)*num_batches_validation+idx_batch)
                             self.event_after_validation_iteration(network,idx_epoch,idx_batch)
+                        validation_losses_epoch_average=sum(validation_losses_epoch)/len(validation_losses_epoch)
+                        if best_validation_loss is None:
+                            best_validation_loss=sum(validation_losses_epoch)/len(validation_losses_epoch)
+                            best_validation_loss_epoch=idx_epoch
+                        elif validation_losses_epoch_average<best_validation_loss:
+                            best_validation_loss=validation_losses_epoch_average
+                            best_validation_loss_epoch=idx_epoch
                         if self.configs.record_epoch_loss:
-                            validation_losses_epoch_average=sum(validation_losses_epoch)/len(validation_losses_epoch)
                             if validation_losses_epoch_average>1e-5:
                                 info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
                             else:
@@ -336,6 +344,8 @@ class Trainer():
         self.logger.info("Final training loss: {}".format(train_losses_epoch_average))
         if self.validate_dataloader is not None:
             self.logger.info("Final validation loss: {}".format(validation_losses_epoch_average))
+            self.logger.info("Best validation loss: {} at epoch {}".format(best_validation_loss,best_validation_loss_epoch))
+        # record_loss 
         if self.configs.record_final_losses:
             losses=[t_loss[1] for t_loss in losses_train_final_epochs]
             self.logger.info(
