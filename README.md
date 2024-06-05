@@ -94,6 +94,27 @@ training_records=trained_project.get_records()
 trained_network=trained_project.get_saved_network()
 ```
 
+### Task scheduler
+
+We provide a `runtasks` function to manage the training tasks. Available options for this command include
+
+```bash
+  -f, --file  The file contains the commands to be executed, default is 'undo'.
+  -t, --tag     Tags for the work, default is empty.
+  -p, --previous        Run the previous undo file.
+```
+
+To run this command, you need a script file named `file_tag` (default is `undo`) which contains the commands you want to run line by line:
+
+```bash
+python run_mission1.py
+# you can use "#" to make the comment. Empty line is also supported for splite contents.
+python run_mission2.py
+python run_mission3.py
+```
+
+An important feature of this command is that the script file is editable in run time. Every time one command line in the file is executed, the corresponding line will be removed from the files. You can change the order and add or remove commands in the script line any time you want, and the changes will take effect immediately after the current command is done.
+
 ### GeneralDataClass
 
 A general data class which store data as the class attributes：

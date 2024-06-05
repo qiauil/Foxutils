@@ -15,7 +15,7 @@ def get_install_requires():
 
 setuptools.setup(
     name="foxutils",
-    version="0.0.59",
+    version="0.0.60",
     author="Qiauil",
     author_email="qiangliu.7@outlook.com",
     description="Utils for PyTorch based deep-learning study",
@@ -29,4 +29,9 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=get_install_requires(),
+    entry_points = {
+	'console_scripts': [
+	    'runtasks = foxutils.bin.run_tasks:run_tasks'
+	]
+    },
 )
