@@ -49,8 +49,8 @@ def num_valid(lines):
 
 def run_tasks():
     args = parse_args()
-    if args.t__tag !="":
-        tag="_"+args.t__tag
+    if args.tag !="":
+        tag="_"+args.tag
     else:
         tag=""
     if args.previous:
@@ -61,7 +61,7 @@ def run_tasks():
         folder_name = sorted(dir_list,  key=lambda x: os.path.getmtime(os.path.join(previous_folder, x)))[-1]
         undo_file=os.path.join(previous_folder, folder_name, "done_tasks")
     else:
-        undo_file="./{}{}".format(args.f__file,tag)
+        undo_file="./{}{}".format(args.file,tag)
     timeLabel = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time()))
     working_dir="./task_records{}/{}/".format(tag,timeLabel)
     os.makedirs(working_dir,exist_ok=True)

@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.18
-#last modified:20240510
+#version:0.0.19
+#last modified:2024062
 
 from . import *
 from .style import *
@@ -11,6 +11,8 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from ..helper.coding import *
 from typing import *
 import os
+import matplotlib.cm as cm
+import matplotlib.colors as colors
 
 def plot3D(z,ztitle="z",xtitle="x",ytitle="y",cmap='viridis',plot2D=False,xlist=None,ylist=None,**kwargs):
     '''
@@ -364,7 +366,8 @@ class ChannelPloter():
                  x_start:Optional[float]=None, x_end:Optional[float]=None, y_start:Optional[float]=None, y_end:Optional[float]=None,
                  minvs:Optional[Sequence]=None, maxvs:Optional[Sequence]=None,
                  cmap=CMAP_COOLHOT, use_sym_colormap:bool=True,
-                 cbar_pad:float=0.1, redraw_cticks:bool=True, num_colorbar_value:int=4, ctick_format:Optional[str]=None, 
+                 cbar_pad:float=0.1, 
+                 num_colorbar_value:int=4, ctick_format:Optional[str]=None, 
                  rotate_colorbar_with_oneinput:bool=False, 
                  subfigure_index:Optional[Sequence]=None, 
                  save_name:Optional[str]=None, 
@@ -436,7 +439,6 @@ class ChannelPloter():
                             direction='row',
                             cbar_pad=cbar_pad
                             )
-            im_cb = []
               
             for i, ax_i in enumerate(grid):
                 i_row = i // num_channels
@@ -459,19 +461,16 @@ class ChannelPloter():
                     x_label=x_label,y_label=y_label,
                     cmap=cmap,
                     aspect=aspect,
-                )
-                if i < num_channels:
-                    im_cb.append(im)      
+                ) 
                 if mask is not None:
                     ax_i.imshow(mask)  
                 if inverse_y:
                     ax_i.invert_yax_i() 
 
             for i in range(num_channels):
-                cb = grid.cbar_axes[i].colorbar(im_cb[i], label=channel_units[i], ticklocation=ticklocation, format=ctick_format)
+                cb = grid.cbar_axes[i].colorbar(cm.ScalarMappable(colors.Normalize(vmin=mins[i], vmax=maxs[i]), cmap=cmap), label=channel_units[i], ticklocation=ticklocation, format=ctick_format)
                 cb.ax.minorticks_on()
-                if redraw_cticks:
-                    cb.set_ticks(np.linspace(mins[i], maxs[i], num_colorbar_value, endpoint=True))      
+                cb.set_ticks(np.linspace(mins[i], maxs[i], num_colorbar_value, endpoint=True))      
             fig.suptitle(title, y=title_position)
             if subfigure_index is not None:
                 plt.suptitle(subfigure_index, x=0.01, y=0.88, fontproperties="Times New Roman")
@@ -492,7 +491,8 @@ def show_each_channel(fields: torch.Tensor|np.ndarray|Sequence,
                  x_start:Optional[float]=None, x_end:Optional[float]=None, y_start:Optional[float]=None, y_end:Optional[float]=None,
                  minvs:Optional[Sequence]=None, maxvs:Optional[Sequence]=None,
                  cmap=CMAP_COOLHOT, use_sym_colormap:bool=True,
-                 cbar_pad:float=0.1, redraw_cticks:bool=True, num_colorbar_value:int=4, ctick_format:Optional[str]=None, 
+                 cbar_pad:float=0.1, 
+                 num_colorbar_value:int=4, ctick_format:Optional[str]=None, 
                  rotate_colorbar_with_oneinput:bool=False, 
                  subfigure_index:Optional[Sequence]=None, 
                  save_name:Optional[str]=None, 
@@ -543,7 +543,7 @@ def show_each_channel(fields: torch.Tensor|np.ndarray|Sequence,
         x_start=x_start, x_end=x_end, y_start=y_start, y_end=y_end,
         minvs=minvs, maxvs=maxvs,
         cmap=cmap, use_sym_colormap=use_sym_colormap,
-        cbar_pad=cbar_pad, redraw_cticks=redraw_cticks, num_colorbar_value=num_colorbar_value, ctick_format=ctick_format,
+        cbar_pad=cbar_pad, num_colorbar_value=num_colorbar_value, ctick_format=ctick_format,
         rotate_colorbar_with_oneinput=rotate_colorbar_with_oneinput,
         subfigure_index=subfigure_index,
         save_name=save_name,
