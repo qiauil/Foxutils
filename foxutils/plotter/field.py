@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.19
-#last modified:2024062
+#version:0.0.20
+#last modified:20240624
 
 from . import *
 from .style import *
@@ -437,7 +437,7 @@ class ChannelPloter():
                             cbar_location=cbar_location,
                             cbar_mode=cbar_mode,
                             direction='row',
-                            cbar_pad=cbar_pad
+                            cbar_pad=cbar_pad,
                             )
               
             for i, ax_i in enumerate(grid):
@@ -452,7 +452,7 @@ class ChannelPloter():
                     x_label=channel_names[i_column]  
                 else:
                     x_label=None            
-                im=plot_2D_ax(
+                plot_2D_ax(
                     ax=ax_i,data=datai,
                     x_start=x_start,x_end=x_end,y_start=y_start,y_end=y_end,
                     transpose=transpose,
@@ -461,6 +461,7 @@ class ChannelPloter():
                     x_label=x_label,y_label=y_label,
                     cmap=cmap,
                     aspect=aspect,
+                    vmin=mins[i_column],vmax=maxs[i_column]
                 ) 
                 if mask is not None:
                     ax_i.imshow(mask)  
