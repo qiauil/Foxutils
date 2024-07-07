@@ -6,6 +6,15 @@
 
 ------
 
+## Installation
+* Install through pip: pip install git+https://github.com/qiauil/Foxutils
+* Install locally: Download the repository and run ./install.sh or the following code:
+```bash
+python3 setup.py sdist bdist_wheel
+cd dist
+pip install foxutils-*.whl
+```
+
 ## Feature utilities
 
 ### Trainer
@@ -243,14 +252,6 @@ line_plotter.plot()
 
 ![png](pics/README_14_0.png)
 ​    
-
-## Installation
-
-```bash
-python3 setup.py sdist bdist_wheel
-cd dist
-pip install foxutils-*.whl
-```
 
 ## Projects using foxutils
 
