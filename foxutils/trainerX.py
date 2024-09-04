@@ -1,7 +1,7 @@
 # usr/bin/python3
 
 #version:0.0.18
-#last modified:20240424
+#last modified:20240904
 #TODO: loss prediction
 
 import os,torch,time,math,logging,yaml
@@ -271,6 +271,7 @@ class Trainer():
         p_bar=tqdm(range(self.start_epoch,self.configs.epochs+1))
         best_validation_loss=None
         best_validation_loss_epoch=None
+        validation_losses_epoch_average=0.0
         for idx_epoch in p_bar:
             train_losses_epoch=[]
             lr_now=self.optimizer.param_groups[0]["lr"]
@@ -315,12 +316,12 @@ class Trainer():
                             best_validation_loss=validation_losses_epoch_average
                             best_validation_loss_epoch=idx_epoch
                         if self.configs.record_epoch_loss:
-                            if validation_losses_epoch_average>1e-5:
-                                info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
-                            else:
-                                info_epoch+=" validation loss:{:.3e}".format(validation_losses_epoch_average)
                             self.recorder.add_scalar("{}/validation".format(loss_tag),validation_losses_epoch_average,idx_epoch)
                         self.event_after_validation_epoch(network,idx_epoch)
+                if validation_losses_epoch_average>1e-5:
+                    info_epoch+=" validation loss:{:.5f}".format(validation_losses_epoch_average)
+                else:
+                    info_epoch+=" validation loss:{:.3e}".format(validation_losses_epoch_average)
             p_bar.set_description(info_epoch)
             self.lr_scheduler.step()
             if idx_epoch%self.configs.save_epoch==0:
