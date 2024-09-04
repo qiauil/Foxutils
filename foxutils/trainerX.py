@@ -138,7 +138,7 @@ class Trainer():
         logger=logging.getLogger("logger_{}".format(self.configs.name))
         logger.setLevel(logging.INFO)
         logger.handlers = []
-        disk_handler = logging.FileHandler(filename=self.project_path+"training_event.log", mode='a')
+        disk_handler = logging.FileHandler(filename=os.path.join(self.project_path,"training_event.log"), mode='a')
         disk_handler.setFormatter(logging.Formatter(fmt="%(asctime)s : %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
         logger.addHandler(disk_handler)
         screen_handler = logging.StreamHandler()
@@ -212,10 +212,10 @@ class Trainer():
         # create project folder
         time_label = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time()))
         if not self._train_from_checkpoint:
-            self.project_path=self.configs.save_path+self.configs.name+os.sep+time_label+os.sep
+            self.project_path=os.path.join(self.configs.save_path,self.configs.name,time_label)
             os.makedirs(self.project_path, exist_ok=True)
-        self.records_path=self.project_path+"records"+os.sep
-        self.checkpoints_path=self.project_path+"checkpoints"+os.sep
+        self.records_path=os.path.join(self.project_path,"records")
+        self.checkpoints_path=os.path.join(self.project_path,"checkpoints")
         os.makedirs(self.checkpoints_path, exist_ok=True)
         #get logger and recorder
         self.logger,self.recorder=self.__get_logger_recorder()
@@ -225,13 +225,15 @@ class Trainer():
         self.logger.info("Working path:{}".format(self.project_path))
         self.logger.info("Random seed: {}".format(self.configs.random_seed))      
         # save configs if not train from checkpoint
+        config_path=os.path.join(self.project_path,"configs.yaml")
         if not self._train_from_checkpoint:
-            self.configs_handler.save_config_items_to_yaml(self.project_path+"configs.yaml")
-        self.logger.info("Training configurations saved to {}".format(self.project_path+"configs.yaml"))
+            self.configs_handler.save_config_items_to_yaml(config_path)
+        self.logger.info("Training configurations saved to {}".format(config_path))
         # show model paras and save model structure
         self.logger.info("Network has {} trainable parameters".format(show_paras(network,print_result=False)))
-        torch.save(network, self.project_path + "network_structure.pt")
-        self.logger.info("Network structure saved to {}".format(self.project_path + "network_structure.pt"))
+        structure_path=os.path.join(self.project_path,"network_structure.pt")
+        torch.save(network, structure_path)
+        self.logger.info("Network structure saved to {}".format(structure_path))
         # generate dataloader
         self.train_dataloader,self.validate_dataloader=self.generate_dataloader(train_dataset,validation_dataset)
         if self.validate_dataloader is not None:
@@ -271,7 +273,10 @@ class Trainer():
         p_bar=tqdm(range(self.start_epoch,self.configs.epochs+1))
         best_validation_loss=None
         best_validation_loss_epoch=None
-        validation_losses_epoch_average=0.0
+        if self.validate_dataloader is not None:
+            validation_losses_epoch_average=0.0
+        if self.configs.save_weight_ma:
+            weight_ma=torch.zeros_like(get_para_vector(network))
         for idx_epoch in p_bar:
             train_losses_epoch=[]
             lr_now=self.optimizer.param_groups[0]["lr"]
@@ -324,6 +329,9 @@ class Trainer():
                     info_epoch+=" validation loss:{:.3e}".format(validation_losses_epoch_average)
             p_bar.set_description(info_epoch)
             self.lr_scheduler.step()
+            if self.configs.save_weight_ma:
+                with torch.no_grad():
+                    weight_ma=weight_ma*self.configs.weight_ma_coef+get_para_vector(network)*(1-self.configs.weight_ma_coef)
             if idx_epoch%self.configs.save_epoch==0:
                 checkpoint_now={
                     "epoch":idx_epoch,
@@ -332,14 +340,19 @@ class Trainer():
                     "lr_scheduler":self.lr_scheduler.state_dict(),
                     "random_state":get_random_state()
                 }
-                torch.save(checkpoint_now,self.checkpoints_path+"checkpoint_{}.pt".format(idx_epoch))
+                torch.save(checkpoint_now,os.path.join(self.checkpoints_path,"checkpoint_{}.pt".format(idx_epoch)))
             if self.configs.record_final_losses and idx_epoch>self.configs.epochs-self.configs.final_record_epoch:
                 losses_train_final_epochs.append([idx_epoch,train_losses_epoch_average])
                 if self.validate_dataloader is not None:
                     losses_validation_final_epochs.append([idx_epoch,validation_losses_epoch_average])
         self.event_after_training(network)
         network.to("cpu")
-        torch.save(network.state_dict(),self.project_path+"trained_network_weights.pt")
+        torch.save(network.state_dict(),os.path.join(self.project_path,"trained_network_weights.pt"))
+        if self.configs.save_weight_ma:
+            weight_ma=weight_ma/(1-self.configs.weight_ma_coef**(self.configs.epochs-self.start_epoch+1))
+            weight_ma.to("cpu")
+            apply_para_vector(network,weight_ma)
+            torch.save(network.state_dict(),os.path.join(self.project_path,"trained_network_weights_ma.pt"))
         self.logger.info("Training finished!")
         total_time=time.time()-start_time
         self.logger.info("Final training loss: {}".format(train_losses_epoch_average))
@@ -355,7 +368,7 @@ class Trainer():
                     min(losses),max(losses),
                     sum(losses)/len(losses),numpy.median(losses))
                 )
-            with open(self.project_path+"final_losses.txt","w") as f:
+            with open(os.path.join(self.project_path,"final_losses.txt"),"w") as f:
                 if self.validate_dataloader is not None:
                     f.write("Epoch\tTrain loss\tValidation loss\n")
                     for i in range(len(losses_train_final_epochs)):
@@ -406,6 +419,8 @@ class Trainer():
         self.configs_handler.add_config_item("save_epoch",default_value_func=lambda configs:configs["epochs"]//10,value_type=int,description="Frequency of saving checkpoints.")
         self.configs_handler.add_config_item("record_final_losses",default_value=True,value_type=bool,description="Whether to record losses at the final period of training. The number of epochs can be set through `final_record_epoch`")
         self.configs_handler.add_config_item("final_record_epoch",default_value=100,value_type=int,description="Number of epochs to record at the end of training")
+        self.configs_handler.add_config_item("save_weight_ma",default_value=True,value_type=bool,description="Whether to save the moving average of the network weights.")
+        self.configs_handler.add_config_item("weight_ma_coef",default_value=0.9,value_type=float,description="Coefficient for moving average of the network weights.")
         self.set_configs_type_dataloader()
         
     def set_configs_type_dataloader(self):
@@ -556,30 +571,31 @@ class Trainer():
         self._train_from_checkpoint=True
         self.project_path=project_path
         # get checkpoint epoch
-        if self.project_path[-1]!=os.sep:
-            self.project_path+=os.sep
-        if not os.path.exists(self.project_path+"configs.yaml"):
-            print("No configs.yaml found in {}".format(self.project_path))
+        config_path=os.path.join(self.project_path,"configs.yaml")
+        if not os.path.exists(config_path):
+            print("No configs.yaml found in {}".format(config_path))
             print("Trying to use the latest subfolder as project path")
-            dir_list = [folder_name for folder_name in os.listdir(self.project_path) if os.path.isdir(self.project_path+folder_name)]
+            dir_list = [folder_name for folder_name in os.listdir(self.project_path) if os.path.isdir(os.path.join(self.project_path, folder_name))]
             folder_name = sorted(dir_list,  key=lambda x: os.path.getmtime(os.path.join(self.project_path, x)))[-1]
-            if not os.path.exists(self.project_path+folder_name+os.sep+"configs.yaml"):
-                raise FileNotFoundError("No configs.yaml found in {}".format(self.project_path+folder_name+os.sep))
-            self.project_path+=folder_name+os.sep
+            config_path=os.path.join(self.project_path+folder_name+os.sep,"configs.yaml")
+            if not os.path.exists(config_path):
+                raise FileNotFoundError("No configs.yaml found in {}".format(os.path.join(self.project_path, folder_name)))
+            self.project_path=os.path.join(self.project_path, folder_name)
             print("Project path set to {}".format(self.project_path))
         if restart_epoch is None:
-            check_points_names=os.listdir(self.project_path+"checkpoints")
-            latest_check_point_name = sorted(check_points_names,  key=lambda x: os.path.getmtime(os.path.join(self.project_path+"checkpoints"+os.sep, x)))[-1]
+            check_points_folders=os.listdir(self.project_path+"checkpoints")
+            check_points_names=os.listdir(check_points_folders)
+            latest_check_point_name = sorted(check_points_names,  key=lambda x: os.path.getmtime(os.path.join(self.project_path,"checkpoints", x)))[-1]
             restart_epoch=int(latest_check_point_name.split("_")[-1].split(".")[0])
         # check files
-        if not os.path.exists(self.project_path+"checkpoints"+os.sep+"checkpoint_{}.pt".format(restart_epoch)):
-            raise FileNotFoundError("No 'checkpoint_{}.pt' found in {}".format(restart_epoch,self.project_path+"checkpoints"+os.sep))
-        if not os.path.exists(self.project_path+"network_structure.pt"):
+        if not os.path.exists(os.path.join(self.project_path,"checkpoints","checkpoint_{}.pt".format(restart_epoch))):
+            raise FileNotFoundError("No 'checkpoint_{}.pt' found in {}".format(restart_epoch,os.path.join(self.project_path,"checkpoints")))
+        if not os.path.exists(os.path.join(self.project_path,"network_structure.pt")):
             raise FileNotFoundError("No network_structure.pt found in {}".format(self.project_path))
         # read configs and network
-        self.configs_handler.set_config_items_from_yaml(self.project_path+"configs.yaml")
+        self.configs_handler.set_config_items_from_yaml(os.path.join(self.project_path,"configs.yaml"))
         self.configs=self.configs_handler.configs()
-        network=torch.load(self.project_path+"network_structure.pt")
+        network=torch.load(os.path.join(self.project_path,"network_structure.pt"))
         self.start_epoch=restart_epoch+1
         self.__train(network,train_dataset,validation_dataset)
 
@@ -727,12 +743,13 @@ class TrainedProject():
         Returns:
             dict or str: The configurations or the path of the configs.yaml file.
         '''
-        if not os.path.exists(self.project_path+"configs.yaml"):
+        config_path=os.path.join(self.project_path,"configs.yaml")
+        if not os.path.exists(config_path):
             raise FileNotFoundError("No configs.yaml found in {}".format(self.project_path))
         if only_path:
-            return self.project_path+"configs.yaml"
+            return config_path
         else:
-            with open(self.project_path+"configs.yaml","r") as f:
+            with open(config_path,"r") as f:
                 configs_dict=yaml.safe_load(f)
             return configs_dict
     
@@ -746,29 +763,33 @@ class TrainedProject():
         Returns:
             torch.nn.Module or str: The network structure or the path of the network_structure.pt file.
         '''
-        if not os.path.exists(self.project_path+"network_structure.pt"):
+        network_structure_path=os.path.join(self.project_path,"network_structure.pt")
+        if not os.path.exists(network_structure_path):
             raise FileNotFoundError("No network_structure.pt found in {}".format(self.project_path))
         if only_path:
-            return self.project_path+"network_structure.pt"
+            return network_structure_path
         else:
-            return torch.load(self.project_path+"network_structure.pt")
+            return torch.load(network_structure_path)
     
-    def get_trained_network_weights(self,only_path=False):
+    def get_trained_network_weights(self,only_path=False,ma=False):
         '''
         Get the trained network weights.
 
         Args:
             only_path: bool, whether only to return the path of the trained_network_weights.pt file, default is False.
+            ma: bool, whether to get the moving average weights, default is False.
         
         Returns:
             torch.nn.Module or str: The trained network weights or the path of the trained_network_weights.pt file.
         '''
-        if not os.path.exists(self.project_path+"trained_network_weights.pt"):
-            raise FileNotFoundError("No trained_network_weights.pt found in {}".format(self.project_path))
+        file_name="trained_network_weights.pt" if not ma else "trained_network_weights_ma.pt"
+        file_path=os.path.join(self.project_path,file_name)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError("No {} found in {}".format(file_name,self.project_path))
         if only_path:
-            return self.project_path+"trained_network_weights.pt"
+            return file_path
         else:
-            return torch.load(self.project_path+"trained_network_weights.pt")
+            return torch.load(file_path)
     
     def get_checkpoints(self,check_point=None,only_path=False):
         '''
@@ -782,17 +803,17 @@ class TrainedProject():
             dict or str: The checkpoints or the path of the checkpoints.
         '''
         if check_point is not None:
-            if not os.path.exists(self.project_path+"checkpoints"+os.sep+"checkpoint_{}.pt".format(check_point)):
-                check_points_names=[case.split("_")[1].split(".")[0] for case in os.listdir(self.project_path+"checkpoints")]
-                raise FileNotFoundError("No 'checkpoint_{}.pt' found in {}".format(check_point,self.project_path+"checkpoints"+os.sep)
+            check_point_path=os.path.join(self.project_path,"checkpoints","checkpoint_{}.pt".format(check_point))
+            if not os.path.exists(check_point_path):
+                check_points_names=[case.split("_")[1].split(".")[0] for case in os.listdir(os.path.join(self.project_path+"checkpoints"))]
+                raise FileNotFoundError("No 'checkpoint_{}.pt' found in {}".format(check_point,os.path.join(self.project_path,"checkpoints"))
                                         +os.linesep+"Possible checkpoints:"+os.linesep+str(check_points_names))
-            check_point_path=self.project_path+"checkpoints"+os.sep+"checkpoint_{}.pt".format(check_point)
         else:
             print("No checkpoint specified, using the latest checkpoint",flush=True)
             print("Trying to load checkpoints from the latest checkpoint",flush=True)
             check_points_names=os.listdir(self.project_path+"checkpoints")
-            latest_check_point_name = sorted(check_points_names,  key=lambda x: os.path.getmtime(os.path.join(self.project_path+"checkpoints"+os.sep, x)))[-1]
-            check_point_path=self.project_path+"checkpoints"+os.sep+latest_check_point_name
+            latest_check_point_name = sorted(check_points_names,  key=lambda x: os.path.getmtime(os.path.join(self.project_path+"checkpoints", x)))[-1]
+            check_point_path=os.path.join(self.project_path,"checkpoints",latest_check_point_name)
         if only_path:
             return check_point_path
         else:
@@ -811,10 +832,11 @@ class TrainedProject():
         Returns:
             str: The records or the path of the records(Tensorboard EventAccumulator).
         '''
-        records=os.listdir(self.project_path+"records"+os.sep)
+        record_path=os.path.join(self.project_path,"records")
+        records=os.listdir(record_path)
         if len(records)==0:
-            raise FileNotFoundError("No records found in {}".format(self.project_path+"records"+os.sep))
-        records_path=self.project_path+"records"+os.sep+records[0]
+            raise FileNotFoundError("No records found in {}".format(record_path))
+        records_path=os.path.join(record_path,records[0])
         if only_path:
             return records_path
         else:
@@ -844,7 +866,7 @@ class TrainedProject():
             import tensorflow as tf
         except ImportError:
             raise ImportError("Please install tensorflow to use this function.")
-        record_path=self.project_path+"records"+os.sep
+        record_path=os.path.join(self.project_path,"records")
         logs=os.listdir(record_path)
         if len(logs)==0:
             raise FileNotFoundError("No records found in {}".format(record_path))
@@ -867,25 +889,33 @@ class TrainedProject():
         else:
             return steps,v_losses
     
-    def get_saved_network(self,check_point=None):
+    def get_saved_network(self,check_point=None, ma=False):
         '''
         Get the saved network with trained weights.
 
         Args:
             check_point: int, the checkpoint epoch, default is None, which means the latest checkpoint will be used.
+            ma: bool, whether to get the moving average weights, default is False.
         
         Returns:
             torch.nn.Module: The saved network.
         '''
+        if ma==True and check_point is not None:
+            raise ValueError("Cannot get moving average weights from a specific checkpoint")
         network=self.get_network_structure(only_path=False)
         if check_point is not None:
             weights=self.get_checkpoints(check_point=check_point)["network"]
         else:
-            if os.path.exists(self.project_path+"trained_network_weights.pt"):
-                weights=torch.load(self.project_path+"trained_network_weights.pt")        
+            file_name="trained_network_weights.pt" if not ma else "trained_network_weights_ma.pt"
+            file_path=os.path.join(self.project_path,file_name)
+            if os.path.exists(file_path):
+                weights=torch.load(file_path)        
             else:
-                print("Warning: No trained_network_weights.pt found in {}".format(self.project_path),flush=True)
-                weights=self.get_checkpoints(check_point=None)["network"]
+                if not ma:
+                    print("Warning: No trained_network_weights.pt found in {}".format(self.project_path),flush=True)
+                    weights=self.get_checkpoints(check_point=None)["network"]
+                else:
+                    raise FileNotFoundError("No trained_network_weights_ma.pt found in {}".format(self.project_path))
         network.load_state_dict(weights)
         return network
 
