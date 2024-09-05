@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.18
-#last modified:20240904
+#version:0.0.19
+#last modified:20240905
 #TODO: loss prediction
 
 import os,torch,time,math,logging,yaml
@@ -725,12 +725,13 @@ class TrainedProject():
             project_path+=os.sep
         if not os.path.exists(project_path+"network_structure.pt"):
             print("Warning: No network structure found in {}".format(project_path),flush=True)
-            print("Trying to use the latest subfolder as project path",flush=True)
+            print("Warning: Trying to use the latest subfolder as project path",flush=True)
             dir_list = [folder_name for folder_name in os.listdir(project_path) if os.path.isdir(project_path+folder_name)]
             folder_name = sorted(dir_list,  key=lambda x: os.path.getmtime(os.path.join(project_path, x)))[-1]
             if not os.path.exists(project_path+folder_name+os.sep+"configs.yaml"):
                 raise FileNotFoundError("No configs.yaml found in {}".format(project_path+folder_name+os.sep))
-            project_path+=folder_name+os.sep
+            project_path=os.path.join(project_path,folder_name)
+            print("Warning: Project path set to {}".format(project_path),flush=True)
         self.project_path=project_path
     
     def get_configs(self,only_path=False):
