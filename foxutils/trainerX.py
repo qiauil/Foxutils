@@ -1,7 +1,7 @@
 # usr/bin/python3
 
-#version:0.0.20
-#last modified:20240905
+#version:0.0.21
+#last modified:20240906
 #TODO: loss prediction
 
 import os,torch,time,math,logging,yaml
@@ -284,6 +284,7 @@ class Trainer():
             self.recorder.add_scalar("learning_rate",lr_now,idx_epoch)
             network.train()
             for idx_batch,batched_data in enumerate(self.train_dataloader):
+                p_bar.set_description("batch:{}/{}".format(idx_batch,num_batches_train))
                 time_now=time.time()
                 loss = self.train_step(network=network, batched_data=batched_data,idx_batch=idx_batch,num_batches=num_batches_train,idx_epoch=idx_epoch,num_epoch=self.configs.epochs)
                 self.back_propagate(loss,self.optimizer)
@@ -307,6 +308,7 @@ class Trainer():
                     network.eval()
                     with torch.no_grad():
                         for idx_batch,batched_data in enumerate(self.validate_dataloader):
+                            p_bar.set_description("validation batch:{}/{}".format(idx_batch,num_batches_validation))
                             loss_validation=self.validation_step(network=network,batched_data=batched_data,idx_batch=idx_batch,num_batches=num_batches_validation,idx_epoch=idx_epoch,num_epoch=self.configs.epochs)
                             if self.configs.record_epoch_loss or self.configs.record_iteration_loss:
                                 validation_losses_epoch.append(loss_validation.item())
