@@ -294,8 +294,11 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             self.fabric.call("on_train_batch_start",batch=batch,batch_idx=batch_idx)
             loss=self.train_step(self.model,batch,batch_idx)
             if loss is not None:
-                self.fabric.backward(loss)
-                losses.append(loss.item())
+                if isinstance(loss,torch.Tensor): #IF you don't want to backpropagate the loss, you can return None or a float value loss
+                    self.fabric.backward(loss)
+                    losses.append(loss.item())
+                else:
+                    losses.append(loss)
                 self.add_train_it_bar_info(**{it_bar_tag:losses[-1]})
                 if self.configs.log_iteration_loss:
                     self.fabric.log(iteration_loss_tag,losses[-1],step=self.global_step)
@@ -309,9 +312,10 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                 self.optimizer.zero_grad()
             self._refresh_train_it_bar()
         self.lr_scheduler.step()
-        losses = sum(losses)/len(losses)
-        self.fabric.log(epoch_loss_tag,losses,step=self.current_epoch)
-        self.add_epoch_bar_info(**{epoch_bar_tag:losses})
+        if len(losses)!=0:
+            losses = sum(losses)/len(losses)
+            self.fabric.log(epoch_loss_tag,losses,step=self.current_epoch)
+            self.add_epoch_bar_info(**{epoch_bar_tag:losses})
         self.num_train_loop_called += 1
 
     def validation_loop(self,
