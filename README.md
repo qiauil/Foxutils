@@ -173,15 +173,15 @@ class Student():
             self.configs_handler.add_config_item("graduate age",value_type=int,default_value_func=lambda configs:configs.age+4,description="The age when the student graduate. Default value is age+4.")
             # read configs from file and set configs from kwargs:
             if path_config_file!="":
-                self.configs_handler.set_config_items_from_yaml(path_config_file)
+                self.configs_handler.read_configs_from_yaml(path_config_file)
             self.configs_handler.set_config_items(**kwargs)
             self.configs=self.configs_handler.configs()
     
     def show_config_options(self):
-        self.configs_handler.show_config_features()
+        self.configs_handler.info_available_configs()
     
     def show_configs(self):
-        self.configs_handler.show_config_items()
+        self.configs_handler.info_current_configs()
 
 foxutils=Student(name="foxutils",gender="male",age=18)
 foxutils.show_config_options()

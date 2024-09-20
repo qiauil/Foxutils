@@ -48,6 +48,6 @@ def apply_para_vector(network:torch.nn.Module,para_vec:torch.Tensor)->None:
     with torch.no_grad():
         start=0
         for par in network.parameters():
-            end=start+par.grad.data.view(-1).shape[0]
-            par.data=para_vec[start:end].view(par.grad.data.shape)
+            end=start+par.data.view(-1).shape[0]
+            par.data=para_vec[start:end].view(par.data.shape)
             start=end

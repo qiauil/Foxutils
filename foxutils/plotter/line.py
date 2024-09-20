@@ -1,7 +1,7 @@
 #usr/bin/python3
 
 #version:0.0.8
-#last modified:20240512
+#last modified:20240915
 
 
 from . import *
@@ -350,7 +350,7 @@ class FormatLinePlotter():
                 fig=plt.errorbar(x=x,y=y,yerr=y_error,xerr=x_error,
                                  c=default(self._process_color_style(color_style),self.colors[i]),
                                  linestyle=default(self._process_dash_style(dash_style),self.dash_styles[i]),
-                                 linewidth=lw,elinewidth=eline_width,capsize=cap_size,marker=marker,marker_size=marker_size,
+                                 linewidth=lw,elinewidth=eline_width,capsize=cap_size,marker=marker,markersize=marker_size,
                                  **kwargs)
                 if label is not None:
                     figs.append(fig)

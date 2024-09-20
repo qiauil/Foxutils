@@ -1,8 +1,8 @@
-torch
-numpy
+lightning
 matplotlib
 PyYAML
 einops
 tqdm
 tensorboard
 scipy
+ipywidgets

@@ -4,16 +4,19 @@
 #last modified:20240906
 #TODO: loss prediction
 
+from warnings import warn
+
+warn("This module has deprecated, please use the new module 'foxutils.trainer' instead.",DeprecationWarning)
+
 import os,torch,time,math,logging,yaml
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 from torch.utils.data import DataLoader 
-from .helper.coding import *
-from .helper.network import *
+from ..helper.coding import *
+from ..helper.network import *
 import copy,numpy,random
 from tqdm import tqdm
-
 
 #NOTE: the range of the lambda output should be [0,1]                   
 def get_cosine_lambda(initial_lr,final_lr,epochs,warmup_epoch):
@@ -227,7 +230,7 @@ class Trainer():
         # save configs if not train from checkpoint
         config_path=os.path.join(self.project_path,"configs.yaml")
         if not self._train_from_checkpoint:
-            self.configs_handler.save_config_items_to_yaml(config_path)
+            self.configs_handler.save_configs_to_yaml(config_path)
         self.logger.info("Training configurations saved to {}".format(config_path))
         # show model paras and save model structure
         self.logger.info("Network has {} trainable parameters".format(show_paras(network,print_result=False)))
@@ -409,7 +412,7 @@ class Trainer():
         self.configs_handler.add_config_item("epochs",mandatory=True,value_type=int,description="Number of epochs for training.")
         self.configs_handler.add_config_item("lr",mandatory=True,value_type=float,description="Initial learning rate.")
         self.configs_handler.add_config_item("device",default_value="cpu",value_type=str,description="Device for training.",in_func=lambda x,other_config:torch.device(x),out_func=lambda x,other_config:str(x))
-        self.configs_handler.add_config_item("random_seed",default_value_func=lambda x:int(time.time()),value_type=int,description="Random seed for training. Default is the same as batch_size_train.")# need func
+        self.configs_handler.add_config_item("random_seed",default_value_func=lambda x:int(time.time()),value_type=int,description="Random seed for training. Default is the current time.")# need func
         self.configs_handler.add_config_item("validation_epoch_frequency",default_value=1,value_type=int,description="Frequency of validation.")
         self.configs_handler.add_config_item("optimizer",default_value="AdamW",value_type=str,description="Optimizer for training.",option=["AdamW","Adam","SGD"])
         self.configs_handler.add_config_item("lr_scheduler",default_value="cosine",value_type=str,description="Learning rate scheduler for training",option=["cosine","linear","constant"])
@@ -553,7 +556,7 @@ class Trainer():
         self.run_in_silence=run_in_silence
         self._train_from_checkpoint=False
         if path_config_file != "":
-            self.configs_handler.set_config_items_from_yaml(path_config_file)
+            self.configs_handler.read_configs_from_yaml(path_config_file)
         self.configs_handler.set_config_items(**kwargs)
         self.configs=self.configs_handler.configs()
         self.__train(network,train_dataset,validation_dataset)
@@ -595,7 +598,7 @@ class Trainer():
         if not os.path.exists(os.path.join(self.project_path,"network_structure.pt")):
             raise FileNotFoundError("No network_structure.pt found in {}".format(self.project_path))
         # read configs and network
-        self.configs_handler.set_config_items_from_yaml(os.path.join(self.project_path,"configs.yaml"))
+        self.configs_handler.read_configs_from_yaml(os.path.join(self.project_path,"configs.yaml"))
         self.configs=self.configs_handler.configs()
         network=torch.load(os.path.join(self.project_path,"network_structure.pt"))
         self.start_epoch=restart_epoch+1
@@ -696,13 +699,13 @@ class Trainer():
         '''
         Show the options of training configurations.
         '''
-        self.configs_handler.show_config_features()
+        self.configs_handler.info_available_configs()
     
     def show_current_configs(self):
         '''
         Show the current training configurations.
         '''
-        self.configs_handler.show_config_items()
+        self.configs_handler.info_current_configs()
 
 
 

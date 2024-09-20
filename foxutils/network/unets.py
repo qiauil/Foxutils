@@ -28,7 +28,7 @@ class UNet(nn.Module):
         self.configs_handler.add_config_item("dim_multipliers",mandatory=True,value_type=list,description=r"A list used to control the depth and the size of the net. There will be len(dim_multipliers)-1 down/up blocks in the net. The number of input/output channels of each block will also be determined by the elements of this list(dim_basic$\times$dim_multipliers). For instance, if the dim_multipliers is [1 2 4 8]. There will be 3 down/up blocks. The input/output channel of these blocks are (dim_basic, 2$\times$dim_basic), (2$\times$dim_basic, 4$\times$dim_basic) and (4$\times$dim_basic, 8$\times$dim_basic). The size of neckblock will be  8$\times$dim_basic $\times$ input_channel/$2^3$ $\times$ input_channel/$2^3$. If the first elements is 0, the input channel of the first down layer will be the dim_in and the output channel of the last down layer will be dim_out.")
         self.configs_handler.add_config_item("skip_connection_scale",default_value=1,value_type=float,description="The scale of the skip connection. The output of each down block will be multiplied by this value before being added to the input of the corresponding up block.")
         if path_config_file!="":
-            self.configs_handler.set_config_items_from_yaml(path_config_file)
+            self.configs_handler.read_configs_from_yaml(path_config_file)
         self.configs_handler.set_config_items(**kwargs)
         self.configs=self.configs_handler.configs()
         
@@ -143,7 +143,7 @@ class UNet(nn.Module):
         Returns:
             None
         """
-        self.configs_handler.save_config_items_to_yaml(yaml_file)
+        self.configs_handler.save_configs_to_yaml(yaml_file)
     
     def show_config_options(self):
         """
@@ -152,7 +152,7 @@ class UNet(nn.Module):
         Returns:
             None
         """
-        self.configs_handler.show_config_features()
+        self.configs_handler.info_available_configs()
     
     def show_current_configs(self):
         """
@@ -161,7 +161,7 @@ class UNet(nn.Module):
         Returns:
             None
         """
-        self.configs_handler.show_config_items()
+        self.configs_handler.info_current_configs()
         
     def save_current_configs(self,yaml_file):
         """
@@ -173,7 +173,7 @@ class UNet(nn.Module):
         Returns:
             None
         """
-        self.configs_handler.save_config_items_to_yaml(yaml_file,only_optional=True)
+        self.configs_handler.save_configs_to_yaml(yaml_file,only_optional=True)
 
     def forward(self, x):
         """
