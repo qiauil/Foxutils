@@ -2,9 +2,12 @@ import os
 import yaml
 import torch.nn as nn
 import torch
-from typing import List
+from typing import List,Sequence, Union, Optional
 from warnings import warn
 from tensorboard.backend.event_processing import event_accumulator
+from tqdm.auto import tqdm
+from .postprocess import PostProcessor
+from lightning.fabric import Fabric
 
 def read_configs(path_config_file) -> dict:
     '''
@@ -16,9 +19,16 @@ def read_configs(path_config_file) -> dict:
     Returns:
         dict: The training configurations.
     '''
-    with open(path_config_file,"r") as f:
-        yaml_configs=yaml.safe_load(f)
-    return yaml_configs
+    config_dict={}
+    if os.path.isdir(path_config_file):
+        paths=[os.path.join(path_config_file,group) for group in os.listdir(path_config_file)]
+    else:
+        paths=[path_config_file]
+    for yaml_path in paths:
+        with open(yaml_path,"r") as f:
+            yaml_configs=yaml.safe_load(f)
+        config_dict.update(yaml_configs)
+    return config_dict
 
 def _available_ckpt_ids(ckpt_dir:str) -> List[int]:
     available_ckpts=[]
@@ -40,7 +50,6 @@ class CkptFiles:
             raise ValueError(f"Checkpoint with id {ckpt_id} not found in {self.ckpt_dir}")
         return torch.load(os.path.join(self.ckpt_dir,f"epoch_{ckpt_id}.ckpt"))
         
-
 class TrainedVersion:
     
     def __init__(self,
@@ -52,15 +61,16 @@ class TrainedVersion:
         self.version = version
         self.run_dir = os.path.join(self.project_path, self.run_name, self.version)
         self.record_path = os.path.join(self.run_dir, "event.log")
-        self.logger_dir = os.path.join(self.project_path, "logs",)
-        self.logger_file_dir=os.path.join(self.logger_dir, self.run_name, self.version)
+        self.logger_dir=os.path.join(self.run_dir, "logs")
         self.ckpt_dir = os.path.join(self.run_dir, "checkpoint")
-        self.config_path = os.path.join(self.run_dir, "config.yaml")
+        self.postprocess_dir=os.path.join(self.run_dir,"postprocess")
+        self.config_dir = os.path.join(self.run_dir, "configs")
         self.model_structure_path=os.path.join(self.run_dir,"model_structure.pt")
         self.final_weights_path=os.path.join(self.run_dir, "final_weights.ckpt")
         self._config_dict=None
-        if not os.path.exists(self.config_path):
-            raise FileNotFoundError(f"Configuration file not found at {self.config_path}. Not a valid trained version.")
+        self._fabric=None
+        if not os.path.exists(self.config_dir):
+            raise FileNotFoundError(f"Configuration file not found at {self.config_dir}. Not a valid trained version.")
         
     @property 
     def configs(self) -> dict:
@@ -71,7 +81,7 @@ class TrainedVersion:
             dict: The training configurations.
         '''
         if self._config_dict is None:
-            self._config_dict = read_configs(self.config_path)
+            self._config_dict = read_configs(self.config_dir)
         return self._config_dict
     
     @property
@@ -137,10 +147,10 @@ class TrainedVersion:
         return self.configs["logger"]=="TensorBoard"
     
     @property
-    def event_accumulator(self):
+    def tb_event_accumulator(self):
         if not self.is_tensorboard_logger:
             raise ValueError("Event accumulator is only available for tensorboard loggers")
-        record_path=self.logger_file_dir
+        record_path=self.logger_dir
         records=os.listdir(record_path)
         if len(records)==0:
             raise FileNotFoundError("No records found in {}".format(record_path))
@@ -149,4 +159,96 @@ class TrainedVersion:
         ea= event_accumulator.EventAccumulator(os.path.join(record_path,records[0]))
         ea.Reload()
         return ea
+
+    @property
+    def fabric(self):
+        if self._fabric is None:        
+            self._fabric = Fabric(
+                accelerator=self.configs["device_type"],
+                strategy=self.configs["multi_devices_strategy"],
+                devices=self.configs["num_id_devices"],
+                num_nodes=self.configs["num_nodes"],
+                precision=self.configs["precision"],
+            )
+            self._fabric.launch()
+        return self._fabric
+
+    def load_postprocessor(self,
+                           postprocessor:Union[PostProcessor,Sequence[PostProcessor]],
+                           p_bar_leave=True
+                           ):
+        if not isinstance(postprocessor,Sequence):
+            postprocessor=[postprocessor]
+        enmu=tqdm(postprocessor,desc="Running postprocessors",leave=p_bar_leave)
+        for processor in enmu:
+            postprocess_dir=os.path.join(self.postprocess_dir,processor.processor_name)
+            os.makedirs(postprocess_dir,exist_ok=True)
+            enmu.set_description(f"Running postprocessor: {processor.processor_name}")
+            model=self.fabric.setup(self.final_network)
+            return_value=processor.run(model,
+                                       self.configs,
+                                       postprocess_dir,
+                                       fabric=self.fabric)
+            if return_value is not None:
+                processor.rank_zero_save(return_value,
+                                         os.path.join(postprocess_dir,"output.pt"),
+                                         self.fabric)
         
+class TrainedRun:
+    
+    def __init__(self,
+                 project_path:str,
+                 run_name:str,) -> None:
+        self.run_name=run_name
+        self.version_names=os.listdir(os.path.join(project_path,run_name))
+        self.versions=[TrainedVersion(project_path,run_name,version) for version in self.version_names]
+    
+    def __getitem__(self,id:int) -> TrainedVersion:
+        return self.versions[id]
+    
+    def __len__(self) -> int:
+        return len(self.versions)
+    
+    def load_postprocessor(self,
+                           postprocessor:Union[PostProcessor,Sequence[PostProcessor]],
+                           p_bar_leave=True
+                           ):
+        if len(self) == 1:
+            self[0].load_postprocessor(postprocessor,False)
+        else:
+            enmu=tqdm(self,desc="Versions",leave=p_bar_leave)
+            for run in enmu:
+                enmu.set_description(f"Version: {run.version}")
+                run.load_postprocessor(postprocessor,False)
+        
+
+class TrainedProject:
+    
+    def __init__(self,
+                 project_path:str,
+            exceptions:Optional[Union[Sequence[str],str]]) -> None:
+        if exceptions is None:
+            exceptions=[]
+        else:
+            if isinstance(exceptions,str):
+                exceptions=[exceptions]
+        self.run_names=[name for name in os.listdir(project_path) if name not in exceptions]
+        self.runs=[TrainedRun(project_path,run_name) for run_name in self.run_names]
+        
+    def __getitem__(self,id:int) -> TrainedRun:
+        return self.runs[id]
+    
+    def __len__(self) -> int:
+        return len(self.runs)
+    
+    def load_postprocessor(self,
+                           postprocessor:Union[PostProcessor,Sequence[PostProcessor]],
+                           p_bar_leave=True
+                           ):
+        if len(self)==1:
+            self[0].load_postprocessor(postprocessor,False)
+        else:
+            enmu=tqdm(self,desc="Runs",leave=p_bar_leave)
+            for run in enmu:
+                enmu.set_description(f"Run: {run.run_name}")
+                run.load_postprocessor(postprocessor,False)

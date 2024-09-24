@@ -7,6 +7,7 @@ from ..mixin import *
 from ..callback import *
 from ..lr_lambda import *
 from ..callback import TimeSummaryCallback,InfoCallback
+from ..postprocess import PostProcessor
 
 from lightning.fabric import Fabric,seed_everything
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
@@ -17,6 +18,7 @@ from warnings import warn
 class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
     callbacks: List[Callback]
     fabric_plugins: List[Any]
+    postprocessors: List[PostProcessor]
     state: Dict[str,Any]
     global_step: int=0
     current_epoch: int=0
@@ -72,6 +74,9 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
     def configure_fabric_plugins(self):
         self.fabric_plugins = []
     
+    def configure_postprocessors(self):
+        self.postprocessors = []
+    
     def configure_loggers(self):
         if self.configs.logger == "TensorBoard":
             self.logger = TensorBoardLogger(root_dir=self.logger_dir,
@@ -85,6 +90,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                                     **self.configs.logger_configs.to_dict())
         else:
             raise ValueError("Unsupported logger: {}".format(self.configs.logger))
+        """
         try:
             os.symlink(
                 src=os.path.abspath(os.path.join(self.logger_dir, self.configs.run_name, self.configs.version)),
@@ -93,6 +99,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             )
         except Exception as e:
             pass
+        """
 
     def configure_fabric(self):
         self.fabric = Fabric(
@@ -124,14 +131,14 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         train_loader = self.fabric.setup_dataloaders(DataLoader(train_dataset, 
                                                     batch_size=self.configs.batch_size_train, 
                                                     **self.configs.train_dataloader_configs.to_dict(),
-                                                    drop_last=True
+                                                    drop_last=False
                                                     ))
         self.len_train_dataset = len(train_loader.dataset)
         if validation_dataset is not None:
             validation_loader = self.fabric.setup_dataloaders(DataLoader(validation_dataset, 
                                     batch_size=self.configs.batch_size_val, 
                                     **self.configs.validation_dataloader_configs.to_dict(),
-                                    drop_last=True
+                                    drop_last=False
                                     ))
             self.len_val_dataset = len(validation_loader.dataset)
         else:
@@ -176,7 +183,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
     def _set_paths(self,ckpt_path:str):
         self.run_dir = os.path.join(self.configs.project_path, self.configs.run_name, self.configs.version)
         self.record_path = os.path.join(self.run_dir, "event.log")
-        self.logger_dir = os.path.join(self.configs.project_path, "logs",)
+        self.logger_dir = os.path.join(self.run_dir, "logs",)
         self.ckpt_dir = os.path.join(self.run_dir, "checkpoint")
         self.config_dir = os.path.join(self.run_dir, "configs")
         self.model_structure_path=os.path.join(self.run_dir,"model_structure.pt")
@@ -214,6 +221,22 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                     raise ValueError("Can not compile the model since the batch size of the training dataloader is different from the validation dataloader. Please set the same batch size for both dataloaders. Note that compile model need the input shape of the model unchanged during training.")
             return torch.compile(model)
         return model    
+
+    def _call_postprocessors(self):
+        p_bar=self.rank_zero_tqdm(self.postprocessors,desc="Postprocessing")
+        for postprocessor in p_bar:
+            if isinstance(p_bar,tqdm):
+                p_bar.set_description(f"Postprocessing {postprocessor.processor_name}")
+            postprocess_dir=os.path.join(self.run_dir,"postprocess",postprocessor.processor_name)
+            os.makedirs(postprocess_dir,exist_ok=True)
+            return_value=postprocessor.run(model=self.model,
+                              config_dict=self.str_dict(),
+                              run_path=self.run_dir,
+                              fabric=self.fabric)
+            if return_value is not None:
+                postprocessor.rank_zero_save(return_value,
+                                             os.path.join(postprocess_dir,"output.pt"),
+                                             self.fabric)
 
     def train(self,
               model:nn.Module,
@@ -274,6 +297,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             self._refresh_epoch_bar()
             self.should_stop = (self.current_epoch >= self.configs.num_epochs)
         self.fabric.save(self.final_weights_path, {"model":self.model})
+        self._call_postprocessors()
         self.fabric.call("on_train_end")
 
     def train_loop(self,
@@ -336,9 +360,10 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                     self.add_validation_it_bar_info(**{it_bar_tag:losses[-1]})
                 self.fabric.call("on_validation_batch_end",batch=batch,batch_idx=batch_idx,batch_loss=loss)
                 self._refresh_validation_it_bar()
-            losses = sum(losses)/len(losses)
-            self.fabric.log(loss_tag,losses,step=self.current_epoch)
-            self.add_epoch_bar_info(**{epoch_bar_tag:losses})
+            if len(losses)!=0:
+                losses = sum(losses)/len(losses)
+                self.fabric.log(loss_tag,losses,step=self.current_epoch)
+                self.add_epoch_bar_info(**{epoch_bar_tag:losses})
         self.num_validation_loop_called += 1
 
     def train_step(self,model:nn.Module,batch:Any,batch_idx:int):
@@ -370,3 +395,18 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             state = {}
         state.update(global_step=self.global_step, current_epoch=self.current_epoch)
         self.fabric.save(os.path.join(self.ckpt_dir, f"epoch_{self.current_epoch}.ckpt"), state)
+        
+    def add_callbacks(self,callbacks:Union[Callback,Sequence[Callback]]):
+        if not isinstance(callbacks,Sequence):
+            callbacks = [callbacks]
+        self.callbacks.extend(callbacks)
+    
+    def add_fabric_plugins(self,plugins:Union[Any,Sequence[Any]]):
+        if not isinstance(plugins,Sequence):
+            plugins = [plugins]
+        self.fabric_plugins.extend(plugins)
+        
+    def add_postprocessors(self,postprocessors:Union[PostProcessor,Sequence[PostProcessor]]):
+        if not isinstance(postprocessors,Sequence):
+            postprocessors = [postprocessors]
+        self.postprocessors.extend(postprocessors)
