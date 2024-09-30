@@ -226,18 +226,21 @@ class TrainedRun:
                 enmu.set_description(f"Version: {run.version}")
                 run.load_postprocessor(postprocessor,False)
         
-
 class TrainedProject:
     
     def __init__(self,
                  project_path:str,
-            exceptions:Optional[Union[Sequence[str],str]]) -> None:
-        if exceptions is None:
-            exceptions=[]
-        else:
-            if isinstance(exceptions,str):
-                exceptions=[exceptions]
-        self.run_names=[name for name in os.listdir(project_path) if name not in exceptions]
+                 white_list:Optional[Union[Sequence[str],str]]=None,
+                 black_list:Optional[Union[Sequence[str],str]]=None) -> None:
+        if black_list is None:
+            black_list=[]
+        elif isinstance(black_list,str):
+                black_list=[black_list]
+        if white_list is None:
+            white_list=os.listdir(project_path)
+        elif isinstance(white_list,str):
+            white_list=[white_list]
+        self.run_names=[name for name in white_list if name not in black_list]
         self.runs=[TrainedRun(project_path,run_name) for run_name in self.run_names]
         
     def __getitem__(self,id:int) -> TrainedRun:
