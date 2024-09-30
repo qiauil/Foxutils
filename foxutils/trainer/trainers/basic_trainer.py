@@ -1,4 +1,8 @@
 
+
+# init_module
+# print
+
 import logging,os,importlib
 
 import torch.nn as nn
@@ -45,6 +49,9 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
 
     def __init__(self) -> None:
         self.register_configs()
+        self.postprocessors = []
+        self.callbacks = []
+        self.fabric_plugins = []
 
     def info(self, msg):
         if self.fabric.local_rank == 0:
@@ -231,12 +238,17 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             os.makedirs(postprocess_dir,exist_ok=True)
             return_value=postprocessor.run(model=self.model,
                               config_dict=self.str_dict(),
-                              run_path=self.run_dir,
+                              working_path=self.run_dir,
                               fabric=self.fabric)
             if return_value is not None:
                 postprocessor.rank_zero_save(return_value,
                                              os.path.join(postprocess_dir,"output.pt"),
                                              self.fabric)
+
+    def _set_random_seed(self,seed:int):
+        seed_everything(self.configs.random_seed,verbose=False,workers=True)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
     def train(self,
               model:nn.Module,
@@ -256,9 +268,10 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         if self.configs.save_model_structure:
             torch.save(model,self.model_structure_path)
         # setup training environment
-        seed_everything(self.configs.random_seed,verbose=False)
+        self._set_random_seed(self.configs.random_seed)
         self.configure_callbacks()
         self.configure_fabric_plugins()
+        self.configure_postprocessors()
         self.configure_loggers()
         self.configure_fabric()
         self.configure_info_recorder()

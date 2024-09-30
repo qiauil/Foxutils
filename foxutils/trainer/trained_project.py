@@ -2,7 +2,7 @@ import os
 import yaml
 import torch.nn as nn
 import torch
-from typing import List,Sequence, Union, Optional
+from typing import List,Sequence, Union, Optional, Literal
 from warnings import warn
 from tensorboard.backend.event_processing import event_accumulator
 from tqdm.auto import tqdm
@@ -175,24 +175,29 @@ class TrainedVersion:
 
     def load_postprocessor(self,
                            postprocessor:Union[PostProcessor,Sequence[PostProcessor]],
-                           p_bar_leave=True
+                           p_bar_leave=True,
+                           fabric:Union[Literal["auto"],Fabric,None]="auto"
                            ):
         if not isinstance(postprocessor,Sequence):
             postprocessor=[postprocessor]
         enmu=tqdm(postprocessor,desc="Running postprocessors",leave=p_bar_leave)
+        if fabric == "auto":
+            fabric=self.fabric
+        else:
+            fabric=fabric
         for processor in enmu:
             postprocess_dir=os.path.join(self.postprocess_dir,processor.processor_name)
             os.makedirs(postprocess_dir,exist_ok=True)
             enmu.set_description(f"Running postprocessor: {processor.processor_name}")
-            model=self.fabric.setup(self.final_network)
+            model=fabric.setup(self.final_network)
             return_value=processor.run(model,
                                        self.configs,
                                        postprocess_dir,
-                                       fabric=self.fabric)
+                                       fabric=fabric)
             if return_value is not None:
                 processor.rank_zero_save(return_value,
                                          os.path.join(postprocess_dir,"output.pt"),
-                                         self.fabric)
+                                         fabric)
         
 class TrainedRun:
     

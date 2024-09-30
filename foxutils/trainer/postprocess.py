@@ -4,6 +4,7 @@ from typing import Any,Iterable
 from tqdm.auto import tqdm
 import torch
 import torch.nn as nn
+import os
 
 class PostProcessor:
     
@@ -14,7 +15,7 @@ class PostProcessor:
     def run(self,
             model: Optional[nn.Module]=None,
             config_dict: Optional[dict]=None,
-            run_path: Optional[str]=None,
+            working_path: Optional[str]=None,
             fabric:Optional[Fabric]=None) -> Any:
         pass
     
@@ -35,6 +36,7 @@ class PostProcessor:
                        data: Any,
                        file_path: str,
                        fabric:Optional[Fabric]=None,):
+        os.makedirs(os.path.dirname(file_path),exist_ok=True)
         if fabric is None:
             torch.save(data,file_path)
         else:
