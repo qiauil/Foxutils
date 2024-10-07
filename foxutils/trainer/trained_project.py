@@ -8,6 +8,7 @@ from tensorboard.backend.event_processing import event_accumulator
 from tqdm.auto import tqdm
 from .postprocess import PostProcessor
 from lightning.fabric import Fabric
+from lightning.fabric.loggers import TensorBoardLogger, CSVLogger, logger
 
 def read_configs(path_config_file) -> dict:
     '''
@@ -69,6 +70,7 @@ class TrainedVersion:
         self.final_weights_path=os.path.join(self.run_dir, "final_weights.ckpt")
         self._config_dict=None
         self._fabric=None
+        self._logger=None
         if not os.path.exists(self.config_dir):
             raise FileNotFoundError(f"Configuration file not found at {self.config_dir}. Not a valid trained version.")
         
@@ -169,9 +171,29 @@ class TrainedVersion:
                 devices=self.configs["num_id_devices"],
                 num_nodes=self.configs["num_nodes"],
                 precision=self.configs["precision"],
+                loggers=self.logger
             )
             self._fabric.launch()
         return self._fabric
+
+    @property
+    def logger(self)->logger:     
+        if self._logger is None:
+            if self.configs["logger"] == "TensorBoard":
+                self.logger = TensorBoardLogger(root_dir=self.project_path,
+                                                name=self.run_name,
+                                                version=self.version,
+                                                sub_dir="logs",
+                                                **self.configs["logger_configs"])
+            elif self.configs["logger"] == "CSV":
+                self.logger = CSVLogger(root_dir=self.project_path,
+                                        name=self.run_name,
+                                        version=self.version,
+                                        sub_dir="logs",
+                                        **self.configs["logger_configs"])
+            else:
+                raise ValueError("Unsupported logger: {}".format(self.configs.logger))
+        return self._logger
 
     def load_postprocessor(self,
                            postprocessor:Union[PostProcessor,Sequence[PostProcessor]],
@@ -198,6 +220,7 @@ class TrainedVersion:
                 processor.rank_zero_save(return_value,
                                          os.path.join(postprocess_dir,"output.pt"),
                                          fabric)
+    
         
 class TrainedRun:
     

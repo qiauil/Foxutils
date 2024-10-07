@@ -36,9 +36,11 @@ class TimeSummaryCallback(Callback):
             total_time=time.time() - self.start_time,
             total_training_time=self.train_time_accumulated,
             total_validation_time=self.validation_time_accumulated,
-            average_epoch_training_time=self.train_time_accumulated/self.trainer.num_train_loop_called,
-            average_epoch_validation_time=self.validation_time_accumulated/self.trainer.num_validation_loop_called
         )
+        if self.trainer.num_train_loop_called !=0:
+            summary["average_training_time_per_epoch"]=self.train_time_accumulated/self.trainer.num_train_loop_called
+        if self.trainer.num_validation_loop_called !=0:
+            summary["average_validation_time_per_epoch"]=self.validation_time_accumulated/self.trainer.num_validation_loop_called
         summary_str={}
         for key, value in summary.items():
             summary_str[key]=str(datetime.timedelta(seconds=value))

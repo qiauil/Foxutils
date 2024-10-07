@@ -23,18 +23,33 @@ class EMAWeightsCallback(Callback):
     
     def __init__(self, 
                  trainer, 
-                 ema_coef:float=0.9,
-                 ema_weights_update_freq:int=1,
-                 do_ema_validation:bool=True,
                  ) -> None:
         super().__init__(trainer)
-        self.ema_coef = ema_coef
+        trainer.add_config_item(
+            name='ema_coef',
+            group="ema_weights",
+            default_value=0.9,
+            value_type=float,
+            description='Exponential moving average coefficient for EMA weights recording'
+        )
+        trainer.add_config_item(
+            name='ema_weights_update_freq',
+            group="ema_weights",
+            default_value=1,
+            value_type=int,
+            description='Frequency of EMA weight update. The unit is the number of optimization steps'
+        )
+        trainer.add_config_item(
+            name='do_ema_validation',
+            group="ema_weights",
+            default_value=True,
+            value_type=bool,
+            description='Whether to perform additional validation after EMA weight update'
+        )
         self.ema_params = ()
         self.ema_step = 0
         self.stream = None
         self.thread = None
-        self.ema_weights_update_freq = ema_weights_update_freq
-        self.do_ema_validation = do_ema_validation
         self.num_called = 0   
         
     def swap_tensors(self, tensor1, tensor2):
@@ -60,13 +75,13 @@ class EMAWeightsCallback(Callback):
         with torch.cuda.stream(self.stream):
             current_weight = tuple(p.data.to(self.trainer.device, non_blocking=True) for p in self.trainer.model.parameters())
             if self.trainer.device.type == 'cuda':
-                ema_update(self.ema_params, current_weight,self.ema_coef,self.ema_step)
+                ema_update(self.ema_params, current_weight,self.trainer.configs.ema_coef,self.ema_step)
 
         if self.trainer.device.type == 'cpu':
             self.thread = threading.Thread(
                 target=run_ema_update_cpu, args=(self.ema_params, 
                                                  current_weight,
-                                                 self.ema_coef,
+                                                 self.trainer.configs.ema_coef,
                                                  self.ema_step,
                                                  self.stream,),)
             self.thread.start()    
@@ -103,20 +118,20 @@ class EMAWeightsCallback(Callback):
     def state_dict(self):
         self.join()
         state_dict = {
-            'self.ema_params': self.ema_params,
+            'ema_params': self.ema_params,
             'ema_step': self.ema_step,
-            'ema_coef': self.ema_coef,
+            'ema_coef': self.trainer.configs.ema_coef,
         }
         return state_dict
 
     def load_state_dict(self, state_dict):
         self.join()
-        self.ema_params = tuple(param.to(self.trainer.device) for param in copy.deepcopy(state_dict['ema']))
+        self.ema_params = tuple(param.to(self.trainer.device) for param in copy.deepcopy(state_dict['ema_params']))
         self.ema_step= state_dict['ema_step']
-        self.ema_coef = state_dict['ema_coef']
+        self.trainer.configs.ema_coef = state_dict['ema_coef']
     
     def on_state_register(self, state_dict: torch.Dict[str, torch.Any]):
-        state_dict['ema'] = self.state_dict()
+        state_dict['ema'] = self
         
     def on_train_start(self):
         if len(self.ema_params) == 0:
@@ -124,11 +139,11 @@ class EMAWeightsCallback(Callback):
             
     def on_after_optimizer_step(self,strategy,optimizer):
         self.num_called += 1
-        if self.num_called % self.ema_weights_update_freq == 0:
+        if self.num_called % self.trainer.configs.ema_weights_update_freq == 0:
             self.update()
     
     def on_validation_epoch_end(self, epoch_idx: int):
-        if self.do_ema_validation:
+        if self.trainer.configs.do_ema_validation:
             self.join()
             with self.swap_ema_weights():
                 self.trainer.validation_loop(loss_tag="losses/ema_validation_epoch",

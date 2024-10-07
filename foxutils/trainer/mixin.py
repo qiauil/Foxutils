@@ -38,7 +38,7 @@ class TrainConfigMixin(GroupedConfigurationsHandler):
         self.add_config_item("num_id_devices",
                             group="distributed_training",
                             default_value="auto",
-                            value_type=Union[int,str,List[int]],
+                            value_type=Union[int,str,List],
                             description='Number of devices to train on (int), which GPUs to train on (list or str), or "auto".The value applies per node. Will pass to `device` in `Fabric`.')
         self.add_config_item("num_nodes",
                             group="distributed_training",
@@ -219,6 +219,9 @@ class CallbackMixin:
         pass
     
     def on_train_end(self):
+        pass
+    
+    def on_epoch_end(self,epoch_idx:int):
         pass
     
     def on_train_epoch_start(self,epoch_idx:int):

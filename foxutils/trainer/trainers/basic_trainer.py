@@ -49,8 +49,11 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
 
     def __init__(self) -> None:
         self.register_configs()
+        self.callbacks = [self, 
+                          InfoCallback(self), 
+                          TimeSummaryCallback(self), 
+                          SaveLatestCallback(self)]
         self.postprocessors = []
-        self.callbacks = []
         self.fabric_plugins = []
 
     def info(self, msg):
@@ -74,26 +77,19 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             disk_handler = logging.FileHandler(filename=self.record_path, mode='a')
             disk_handler.setFormatter(logging.Formatter(fmt="%(asctime)s : %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
             self._info_recorder.addHandler(disk_handler)
-
-    def configure_callbacks(self):
-        self.callbacks = [self, InfoCallback(self), TimeSummaryCallback(self)]
-
-    def configure_fabric_plugins(self):
-        self.fabric_plugins = []
-    
-    def configure_postprocessors(self):
-        self.postprocessors = []
     
     def configure_loggers(self):
         if self.configs.logger == "TensorBoard":
-            self.logger = TensorBoardLogger(root_dir=self.logger_dir,
+            self.logger = TensorBoardLogger(root_dir=self.configs.project_path,
                                             name=self.configs.run_name,
                                             version=self.configs.version,
+                                            sub_dir="logs",
                                             **self.configs.logger_configs.to_dict())
         elif self.configs.logger == "CSV":
-            self.logger = CSVLogger(root_dir=self.logger_dir,
+            self.logger = CSVLogger(root_dir=self.configs.project_path,
                                     name=self.configs.run_name,
                                     version=self.configs.version,
+                                    sub_dir="logs",
                                     **self.configs.logger_configs.to_dict())
         else:
             raise ValueError("Unsupported logger: {}".format(self.configs.logger))
@@ -199,23 +195,24 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         if os.path.exists(self.run_dir):
             if not os.path.exists(self.config_dir):
                 raise RuntimeError("The run directory already exists, but the config file does not exist. Can not restart training. Please check the run directory.")
-            latest_ckpt_ids = [int(x.split(".")[0].split("_")[-1]) for x in os.listdir(self.ckpt_dir)]
-            if len(latest_ckpt_ids)!=0:
-                latest_ckpt_ids = max(latest_ckpt_ids)
-                if latest_ckpt_ids >= self.configs.num_epochs:
-                    raise RuntimeError("The run directory already exists, and the number of checkpoints exceeds the number of epochs. Can not restart training. Please check the run directory.")
-                else:
+            ckpts=os.listdir(self.ckpt_dir)
+            if "latest.ckpt" in ckpts:
+                latest_ckpt_path = os.path.join(self.ckpt_dir, "latest.ckpt")
+            else:
+                latest_ckpt_ids = [int(x.split(".")[0].split("_")[-1]) for x in ckpts]
+                if len(latest_ckpt_ids)!=0:
+                    latest_ckpt_ids = max(latest_ckpt_ids)
                     latest_ckpt_path = os.path.join(self.ckpt_dir, "epoch_{}.ckpt".format(latest_ckpt_ids))
-        for dir_i in [self.run_dir, self.ckpt_dir, self.logger_dir,self.config_dir]:
-            os.makedirs(dir_i,exist_ok=True)
-        if ckpt_path and latest_ckpt_path:
+        if ckpt_path is not None and latest_ckpt_path is not None:
             raise RuntimeError("Detected unfinished training in the run directory, but also provided a different checkpoint path. Please unset the `ckpt_path` or specify different `project_path`/`run_name`.")
-        if latest_ckpt_path and os.path.exists(self.final_weights_path):
+        if latest_ckpt_path is not None and os.path.exists(self.final_weights_path):
             raise RuntimeError("Found final weights. There existed a finished training. Please check the run directory.")
-        if not (not ckpt_path and not latest_ckpt_path):
+        if ckpt_path is not None or latest_ckpt_path is not None:
             self.ckpt_path=ckpt_path if ckpt_path else latest_ckpt_path  
         else:
             self.ckpt_path=None
+        for dir_i in [self.run_dir, self.ckpt_dir, self.logger_dir,self.config_dir]:
+            os.makedirs(dir_i,exist_ok=True)
 
     def _compile_model(self,model:nn.Module):
         if self.configs.compile_model:
@@ -238,7 +235,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             os.makedirs(postprocess_dir,exist_ok=True)
             return_value=postprocessor.run(model=self.model,
                               config_dict=self.str_dict(),
-                              working_path=self.run_dir,
+                              working_path= postprocess_dir,
                               fabric=self.fabric)
             if return_value is not None:
                 postprocessor.rank_zero_save(return_value,
@@ -249,6 +246,15 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         seed_everything(self.configs.random_seed,verbose=False,workers=True)
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
+
+    @property
+    def should_save_ckpt(self):
+        if self.configs.checkpoint_save_frequency == 0 or self.current_epoch == self.configs.num_epochs:
+            return False
+        if self.current_epoch % self.configs.checkpoint_save_frequency == 0:
+            return True
+        return False
+        
 
     def train(self,
               model:nn.Module,
@@ -269,9 +275,6 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             torch.save(model,self.model_structure_path)
         # setup training environment
         self._set_random_seed(self.configs.random_seed)
-        self.configure_callbacks()
-        self.configure_fabric_plugins()
-        self.configure_postprocessors()
         self.configure_loggers()
         self.configure_fabric()
         self.configure_info_recorder()
@@ -297,18 +300,19 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         # main loop
         while not self.should_stop:
             self.current_epoch += 1
+            self.should_stop = (self.current_epoch >= self.configs.num_epochs)
             self.fabric.call("on_train_epoch_start",epoch_idx=self.current_epoch)
             self.train_loop()
             self.fabric.call("on_train_epoch_end",epoch_idx=self.current_epoch)
-            if self.current_epoch % self.configs.validation_frequency == 0:
+            if self.validation_loader is not None and self.current_epoch % self.configs.validation_frequency == 0:
                 self.fabric.call("on_validation_epoch_start",epoch_idx=self.current_epoch)
                 self.validation_loop()
                 self.fabric.call("on_validation_epoch_end",epoch_idx=self.current_epoch)
-            if self.validation_loader is not None and self.current_epoch % self.configs.checkpoint_save_frequency == 0 and self.current_epoch != self.configs.num_epochs:
+            if self.should_save_ckpt:
                 self.save(self.state)
+            self.fabric.call("on_epoch_end",epoch_idx=self.current_epoch)
             self.update_epoch_bar_position()
             self._refresh_epoch_bar()
-            self.should_stop = (self.current_epoch >= self.configs.num_epochs)
         self.fabric.save(self.final_weights_path, {"model":self.model})
         self._call_postprocessors()
         self.fabric.call("on_train_end")
@@ -400,26 +404,33 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         remainder = self.fabric.load(path, state)
         self.global_step = remainder.pop("global_step")
         self.current_epoch = remainder.pop("current_epoch")
+        if self.current_epoch > self.configs.num_epochs:
+            self.fabric.print("Current epoch {} is larger than the number of epochs {}. Exiting.".format(self.current_epoch, self.configs.num_epochs))
+            exit(0)
         if remainder:
             self.warn(f"Unused Checkpoint Values: {remainder}")
 
-    def save(self, state: Optional[Dict]) -> None:
+    def save(self, state: Optional[Dict],ckpt_name:Optional[str]=None) -> None:
         if state is None:
             state = {}
         state.update(global_step=self.global_step, current_epoch=self.current_epoch)
-        self.fabric.save(os.path.join(self.ckpt_dir, f"epoch_{self.current_epoch}.ckpt"), state)
-        
-    def add_callbacks(self,callbacks:Union[Callback,Sequence[Callback]]):
+        save_name=f"epoch_{self.current_epoch}.ckpt" if ckpt_name is None else ckpt_name
+        self.fabric.save(os.path.join(self.ckpt_dir,save_name), state)
+ 
+    def add_callbacks(self,
+                      callbacks:Union[Callback,Sequence[Callback]]):
         if not isinstance(callbacks,Sequence):
             callbacks = [callbacks]
         self.callbacks.extend(callbacks)
-    
-    def add_fabric_plugins(self,plugins:Union[Any,Sequence[Any]]):
+
+    def add_fabric_plugins(self,
+                           plugins:Union[Any,Sequence[Any]]):
         if not isinstance(plugins,Sequence):
             plugins = [plugins]
         self.fabric_plugins.extend(plugins)
         
-    def add_postprocessors(self,postprocessors:Union[PostProcessor,Sequence[PostProcessor]]):
+    def add_postprocessors(self,
+                            postprocessors:Union[PostProcessor,Sequence[PostProcessor]]):
         if not isinstance(postprocessors,Sequence):
             postprocessors = [postprocessors]
-        self.postprocessors.extend(postprocessors)
+        self.postprocessors.extend(postprocessors)       

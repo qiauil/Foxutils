@@ -1,6 +1,6 @@
 # usr/bin/python3
 
-#version:0.0.21
+#version:0.0.22
 #last modified:20240906
 #TODO: loss prediction
 
@@ -13,8 +13,8 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 from torch.utils.data import DataLoader 
-from ..helper.coding import *
-from ..helper.network import *
+from .helper.coding import *
+from .helper.network import *
 import copy,numpy,random
 from tqdm import tqdm
 
@@ -414,8 +414,8 @@ class Trainer():
         self.configs_handler.add_config_item("device",default_value="cpu",value_type=str,description="Device for training.",in_func=lambda x,other_config:torch.device(x),out_func=lambda x,other_config:str(x))
         self.configs_handler.add_config_item("random_seed",default_value_func=lambda x:int(time.time()),value_type=int,description="Random seed for training. Default is the current time.")# need func
         self.configs_handler.add_config_item("validation_epoch_frequency",default_value=1,value_type=int,description="Frequency of validation.")
-        self.configs_handler.add_config_item("optimizer",default_value="AdamW",value_type=str,description="Optimizer for training.",option=["AdamW","Adam","SGD"])
-        self.configs_handler.add_config_item("lr_scheduler",default_value="cosine",value_type=str,description="Learning rate scheduler for training",option=["cosine","linear","constant"])
+        self.configs_handler.add_config_item("optimizer",default_value="AdamW",value_type=str,description="Optimizer for training.",options=["AdamW","Adam","SGD"])
+        self.configs_handler.add_config_item("lr_scheduler",default_value="cosine",value_type=str,description="Learning rate scheduler for training",options=["cosine","linear","constant"])
         self.configs_handler.add_config_item("final_lr",default_value_func=lambda configs:configs["lr"],value_type=float,description="Final learning rate for lr_scheduler.")
         self.configs_handler.add_config_item("warmup_epoch",default_value=0,value_type=int,description="Number of epochs for learning rate warm up.")
         self.configs_handler.add_config_item("record_iteration_loss",default_value=False,value_type=bool,description="Whether to record iteration loss.")
@@ -558,7 +558,7 @@ class Trainer():
         if path_config_file != "":
             self.configs_handler.read_configs_from_yaml(path_config_file)
         self.configs_handler.set_config_items(**kwargs)
-        self.configs=self.configs_handler.configs()
+        self.configs=self.configs_handler.configs
         self.__train(network,train_dataset,validation_dataset)
 
     def train_from_checkpoint(self,project_path,train_dataset,validation_dataset=None,restart_epoch=None,run_in_silence=False):
@@ -1042,3 +1042,4 @@ def get_saved_network(project_path,check_point=None):
     network.load_state_dict(network_weights)
     return network
     '''
+
