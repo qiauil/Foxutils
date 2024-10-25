@@ -56,7 +56,8 @@ class TrainedVersion:
     def __init__(self,
                  project_path:str,
                  run_name:str,
-                 version:str) -> None:
+                 version:str,
+                 device:Union[Literal["auto","config"],Sequence]="auto") -> None:
         self.project_path = project_path
         self.run_name = run_name
         self.version = version
@@ -71,6 +72,7 @@ class TrainedVersion:
         self._config_dict=None
         self._fabric=None
         self._logger=None
+        self._device=device
         if not os.path.exists(self.config_dir):
             raise FileNotFoundError(f"Configuration file not found at {self.config_dir}. Not a valid trained version.")
         
@@ -108,7 +110,7 @@ class TrainedVersion:
             dict: The final weights of the model.
         '''
         if os.path.exists(self.final_weights_path):
-            return torch.load(self.final_weights_path)["model"]
+            return torch.load(self.final_weights_path,map_location=self.fabric.device)["model"]
         else:
             raise FileNotFoundError(f"Final weights not found at {self.final_weights_path}")
     
@@ -121,7 +123,7 @@ class TrainedVersion:
             nn.Module: The final model.
         '''
         model=self.network_structure
-        model.load_state_dict(self.final_weights)
+        self.fabric.load(self.final_weights_path,{"model":model})
         return model
     
     @property
@@ -164,11 +166,23 @@ class TrainedVersion:
 
     @property
     def fabric(self):
-        if self._fabric is None:        
+        if self._fabric is None:
+            if self._device == "auto":
+                device_type="auto"
+                multi_devices_strategy="auto"
+                num_id_devices="auto"
+            elif self._device == "config":
+                device_type=self.configs["device_type"]
+                multi_devices_strategy=self.configs["multi_devices_strategy"]
+                num_id_devices=self.configs["num_id_devices"]
+            else:
+                device_type=self._device[0]
+                multi_devices_strategy=self._device[1]
+                num_id_devices=self._device[2]
             self._fabric = Fabric(
-                accelerator=self.configs["device_type"],
-                strategy=self.configs["multi_devices_strategy"],
-                devices=self.configs["num_id_devices"],
+                accelerator=device_type,
+                strategy=multi_devices_strategy,
+                devices=num_id_devices,
                 num_nodes=self.configs["num_nodes"],
                 precision=self.configs["precision"],
                 loggers=self.logger
@@ -180,13 +194,13 @@ class TrainedVersion:
     def logger(self)->logger:     
         if self._logger is None:
             if self.configs["logger"] == "TensorBoard":
-                self.logger = TensorBoardLogger(root_dir=self.project_path,
+                self._logger = TensorBoardLogger(root_dir=self.project_path,
                                                 name=self.run_name,
                                                 version=self.version,
                                                 sub_dir="logs",
                                                 **self.configs["logger_configs"])
             elif self.configs["logger"] == "CSV":
-                self.logger = CSVLogger(root_dir=self.project_path,
+                self._logger = CSVLogger(root_dir=self.project_path,
                                         name=self.run_name,
                                         version=self.version,
                                         sub_dir="logs",
@@ -226,10 +240,11 @@ class TrainedRun:
     
     def __init__(self,
                  project_path:str,
-                 run_name:str,) -> None:
+                 run_name:str,
+                 device:Union[Literal["auto","config"],Sequence]="auto") -> None:
         self.run_name=run_name
         self.version_names=os.listdir(os.path.join(project_path,run_name))
-        self.versions=[TrainedVersion(project_path,run_name,version) for version in self.version_names]
+        self.versions=[TrainedVersion(project_path,run_name,version,device) for version in self.version_names]
     
     def __getitem__(self,id:int) -> TrainedVersion:
         return self.versions[id]
@@ -254,7 +269,8 @@ class TrainedProject:
     def __init__(self,
                  project_path:str,
                  white_list:Optional[Union[Sequence[str],str]]=None,
-                 black_list:Optional[Union[Sequence[str],str]]=None) -> None:
+                 black_list:Optional[Union[Sequence[str],str]]=None,
+                 device:Union[Literal["auto","config"],Sequence]="auto") -> None:
         if black_list is None:
             black_list=[]
         elif isinstance(black_list,str):
@@ -264,7 +280,7 @@ class TrainedProject:
         elif isinstance(white_list,str):
             white_list=[white_list]
         self.run_names=[name for name in white_list if name not in black_list]
-        self.runs=[TrainedRun(project_path,run_name) for run_name in self.run_names]
+        self.runs=[TrainedRun(project_path,run_name,device) for run_name in self.run_names]
         
     def __getitem__(self,id:int) -> TrainedRun:
         return self.runs[id]

@@ -146,6 +146,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             self.len_val_dataset = len(validation_loader.dataset)
         else:
             validation_loader = None
+            self.len_val_dataset = 0
         return train_loader, validation_loader
     
     def configure_optimizer(self,model:nn.Module):

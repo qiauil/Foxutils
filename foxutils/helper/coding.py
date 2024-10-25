@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.9
-#last modified:20240102
+#version:0.1.0
+#last modified:20241025
 
 from inspect import isfunction
 import time,yaml
@@ -252,8 +252,9 @@ class ConfigurationsHandler():
                     else:
                         raise Exception("Configuration {} is not set.".format(key))
             #default_value_func and infunc may depends on other configurations
-            for key in self._configs.keys():
-                if self._configs[key] is None and self._configs_feature[key]["default_value_func"] is not None:
+            need_func_keys=[key for key in self._configs_feature.keys() if self._configs[key] is None and self._configs_feature[key]["default_value_func"] is not None]
+            for i in range(2): #run twice is because the default_value_func may also depends on othe default_value_func where we sign the default_value_func to None in previous code
+                for key in need_func_keys:
                     self._configs.set_item(key,self._configs_feature[key]["default_value_func"](self._configs))
                     self._configs_feature[key]["in_func_ran"]=False
                     self._configs_feature[key]["out_func_ran"]=False

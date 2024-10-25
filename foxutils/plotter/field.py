@@ -1,7 +1,7 @@
 #usr/bin/python3
 
-#version:0.0.20
-#last modified:20240624
+#version:0.0.21
+#last modified:20241013
 
 from . import *
 from .style import *
@@ -438,6 +438,7 @@ class ChannelPloter():
                             cbar_mode=cbar_mode,
                             direction='row',
                             cbar_pad=cbar_pad,
+                            aspect=False,
                             )
               
             for i, ax_i in enumerate(grid):

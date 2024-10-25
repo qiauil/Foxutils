@@ -18,8 +18,9 @@ class SaveLatestCallback(Callback):
 
 
     def on_epoch_end(self,epoch_idx:int):
-        if self.trainer.configs.save_latest_checkpoint and not self.trainer.should_save_ckpt:
-            self.trainer.save(self.trainer.state,"latest.ckpt")
+        if self.trainer.configs.save_latest_checkpoint and not self.trainer.should_save_ckpt and self.trainer.configs.latest_checkpoint_frequency!=0:
+            if (epoch_idx+1)%self.trainer.configs.latest_checkpoint_frequency==0:
+                self.trainer.save(self.trainer.state,"latest.ckpt")
     
     def on_train_end(self):
         latest_ckpt_path=os.path.join(self.trainer.ckpt_dir,"latest.ckpt")

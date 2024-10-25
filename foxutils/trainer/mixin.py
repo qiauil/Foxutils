@@ -295,7 +295,7 @@ class ProgressBarMixin:
             Iterable: the wrapped iterable
 
         """
-        if self.fabric.is_global_zero:
+        if self.fabric.is_global_zero and not self.configs.run_in_silence:
             return tqdm(iterable, **kwargs)
         return iterable
     
