@@ -4,7 +4,8 @@
 #last modified:20240220
 
 from . import *
-from typing import Sequence
+from typing import Sequence,Optional,Sequence
+import cycler
 
 COOL=mlp.cm.get_cmap("coolwarm")(np.linspace(0, 0.5, 5))
 HOT=mlp.cm.get_cmap("coolwarm")(np.linspace(0.5, 1, 5))
@@ -85,3 +86,20 @@ def enable_print_style(font_name="Times New Roman", font_size=30, enable_latex=T
     if enable_latex:
         mlp.rcParams['text.usetex'] =True
 
+def fox_mplstyle(
+    use_times_new_roman=False,
+    usetex=False,
+    additional_latex_package:Optional[Sequence[str]]=None,
+    font_size:Optional[int]=12,
+):
+    style_sheet={}
+    style_sheet["axes.prop_cycle"]=cycler.cycler(color=LINE_COLOR) 
+    if use_times_new_roman:
+        style_sheet["font.sans-serif"] = ["Times New Roman"]
+    if usetex:
+        style_sheet["text.usetex"]=True
+    if additional_latex_package is not None:
+        style_sheet["text.latex.preamble"]=r"\usepackage{"+",".join(additional_latex_package)+"}"
+    if font_size is not None:
+        style_sheet["font.size"]=font_size
+    return style_sheet
