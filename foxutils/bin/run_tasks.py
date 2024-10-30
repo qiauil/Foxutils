@@ -1,6 +1,6 @@
 #usr/bin/python3
 
-#version:0.0.01
+#version:0.0.02
 #last modified:20240605
 import time
 import os
@@ -57,7 +57,7 @@ def run_tasks():
         previous_folder="./task_records{}/".format(tag)
         if not os.path.exists(previous_folder):
             raise ValueError("No previous work done.")
-        dir_list = [folder_name for folder_name in os.listdir(previous_folder) if not os.path.isdir(previous_folder+folder_name)]
+        dir_list = [folder_name for folder_name in os.listdir(previous_folder) if os.path.isdir(previous_folder+folder_name)]
         folder_name = sorted(dir_list,  key=lambda x: os.path.getmtime(os.path.join(previous_folder, x)))[-1]
         undo_file=os.path.join(previous_folder, folder_name, "done_tasks")
     else:
