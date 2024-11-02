@@ -134,6 +134,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         train_loader = self.fabric.setup_dataloaders(DataLoader(train_dataset, 
                                                     batch_size=self.configs.batch_size_train, 
                                                     **self.configs.train_dataloader_configs.to_dict(),
+                                                    shuffle=True,
                                                     drop_last=False
                                                     ))
         self.len_train_dataset = len(train_loader.dataset)
@@ -141,6 +142,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             validation_loader = self.fabric.setup_dataloaders(DataLoader(validation_dataset, 
                                     batch_size=self.configs.batch_size_val, 
                                     **self.configs.validation_dataloader_configs.to_dict(),
+                                    shuffle=True,
                                     drop_last=False
                                     ))
             self.len_val_dataset = len(validation_loader.dataset)
