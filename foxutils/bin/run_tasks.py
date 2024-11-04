@@ -27,6 +27,12 @@ def parse_args():
     )    
     parser.add_argument(
         "-p",
+        "--quiet", 
+        action="store_true", 
+        help="Run the commands without any output."
+    )
+    parser.add_argument(
+        "-q",
         "--previous", 
         action="store_true", 
         help="Run the previous undo file."
@@ -66,6 +72,9 @@ def run_tasks():
     working_dir="./task_records{}/{}/".format(tag,timeLabel)
     os.makedirs(working_dir,exist_ok=True)
     done_file=os.path.join(working_dir,"done_tasks")
+    def output(info):
+        if not args.quiet:
+            print(info)
     
     with open(done_file,"w") as fw_done:
         job_idx=1
@@ -84,13 +93,13 @@ def run_tasks():
                     fw.write(line.strip()+os.linesep)
             fw.close()  
             log_name=os.path.join(working_dir,"job_{}.log".format(job_idx))
-            print('Working on job{}: "{}", {} jobs left'.format(job_idx,command.strip(),num_valid(lines)))
-            print("Redirect the output to {}".format(log_name))
-            print("")
+            output('Working on job{}: "{}", {} jobs left'.format(job_idx,command.strip(),num_valid(lines)))
+            output("Redirect the output to {}".format(log_name))
+            output("")
             os.system(command.strip()+" > {}".format(log_name))
             job_idx+=1
             fw_done.write(command)
-    print("All work done. There are no remaining commands in the undo list.")
+    output("All work done. There are no remaining commands in the undo list.")
 
 if __name__ == "__main__":
     run_tasks()   
