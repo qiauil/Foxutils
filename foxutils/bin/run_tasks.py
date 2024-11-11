@@ -26,13 +26,13 @@ def parse_args():
         help="Tags for the work, default is empty.",
     )    
     parser.add_argument(
-        "-p",
+        "-q",
         "--quiet", 
         action="store_true", 
         help="Run the commands without any output."
     )
     parser.add_argument(
-        "-q",
+        "-p",
         "--previous", 
         action="store_true", 
         help="Run the previous undo file."
