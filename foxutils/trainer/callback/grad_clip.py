@@ -13,7 +13,7 @@ def _clip_grad_norm(
         foreach: Optional[bool] = None) -> torch.Tensor:
     r"""Clip the gradient norm of an iterable of parameters.
 
-    The norm is computed.emagc_grad_coef over all gradients together, as if they were
+    The norm is computed.emagc_grad_coef2 over all gradients together, as if they were
     concatenated into a single vector. Gradients are modified in-place.
 
     Args:
@@ -113,9 +113,16 @@ class EmaGradClip(Callback):
                  ) -> None:
         super().__init__(trainer)
         trainer.add_config_item(
-            name='emagc_grad_coef',
+            name='emagc_grad_coef1',
             group="ema_grad_clip",
             default_value=0.9,
+            value_type=float,
+            description='Exponential moving average coefficient for EMA gradient norm recording'
+        )
+        trainer.add_config_item(
+            name='emagc_grad_coef2',
+            group="ema_grad_clip",
+            default_value=0.99,
             value_type=float,
             description='Exponential moving average coefficient for EMA gradient norm recording'
         )
@@ -129,11 +136,19 @@ class EmaGradClip(Callback):
         trainer.add_config_item(
             name='emagc_clip_norm_ratio',
             group="ema_grad_clip",
-            default_value=1.0,
+            default_value=1.1,
             value_type=float,
             description='Ratio for gradient clipping'
         )
-        self.grad_norm_ema=0.0
+        trainer.add_config_item(
+            name='log_clip_info',
+            group="ema_grad_clip",
+            default_value=True,
+            value_type=bool,
+            description='whether to log the clip info'
+        )
+        self._grad_norm_ema1=0.0
+        self._grad_norm_ema2=0.0
         self.ema_index=0
    
     def _get_norm(self):
@@ -145,28 +160,36 @@ class EmaGradClip(Callback):
 
     def _record_norm(self,new_norm:float):
         self.ema_index+=1
-        self.grad_norm_ema=self.trainer.config.emagc_grad_coef*self.grad_norm_ema+(1-self.trainer.config.emagc_grad_coef)*new_norm
+        self._grad_norm_ema1=self.trainer.configs.emagc_grad_coef1*self._grad_norm_ema1+(1-self.trainer.configs.emagc_grad_coef1)*new_norm
+        self._grad_norm_ema2=self.trainer.configs.emagc_grad_coef2*self._grad_norm_ema2+(1-self.trainer.configs.emagc_grad_coef2)*new_norm
 
     @property
-    def _current_ema(self):
-        return self.grad_norm_ema/(1-self.trainer.config.emagc_grad_coef**self.ema_index)
+    def _current_ema1(self):
+        return self._grad_norm_ema1/(1-self.trainer.configs.emagc_grad_coef1**self.ema_index)
+
+    @property
+    def _current_ema2(self):
+        return self._grad_norm_ema2/(1-self.trainer.configs.emagc_grad_coef2**self.ema_index)
 
     def on_before_optimizer_step(self):
-        if self.grad_norm_emas==0.0:
+        if self._grad_norm_ema2==0.0:
             total_norm, clipped = _clip_grad_norm(self.trainer.model.parameters(), 
                                                          max_norm=10000,
                                                          clip_norm=1,)
         else:
             total_norm, clipped = _clip_grad_norm(
                 self.trainer.model.parameters(),
-                max_norm=self.trainer.config.emagc_max_norm_ratio*self._current_ema,
-                clip_norm=self.trainer.config.emagc_clip_norm_ratio*self._current_ema
+                max_norm=self.trainer.configs.emagc_max_norm_ratio*self._current_ema2,
+                clip_norm=self.trainer.configs.emagc_clip_norm_ratio*self._current_ema1
             )
-        if not clipped:
-            self._record_norm(total_norm)
-        self.trainer.fabric.log("grad_clip/grad_norm",total_norm,step=self.trainer.global_step)
-        self.trainer.fabric.log("grad_clip/ema_grad_norm",self._current_ema,step=self.trainer.global_step)
-        self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
+        norm=self.trainer.configs.emagc_clip_norm_ratio*self._current_ema1 if clipped else total_norm
+        self._record_norm(norm)
+        if self.trainer.configs.log_clip_info:
+            self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
+            self.trainer.fabric.log("grad_clip/ema_grad_norm_1",self._current_ema1,step=self.trainer.global_step)
+            self.trainer.fabric.log("grad_clip/ema_grad_norm_2",self._current_ema2,step=self.trainer.global_step)
+            self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
+            self.trainer.fabric.log("grad_clip/real_grad_norm",norm,step=self.trainer.global_step)
         
 class ConstantGradClip(Callback):
     
@@ -179,10 +202,20 @@ class ConstantGradClip(Callback):
             value_type=float,
             description='Maximum norm for gradient clipping'
         )
+        trainer.add_config_item(
+            name='log_clip_info',
+            group="ema_grad_clip",
+            default_value=True,
+            value_type=bool,
+            description='whether to log the clip info'
+        )
         
     def on_before_optimizer_step(self):
         total_norm, clipped=_clip_grad_norm(self.trainer.model.parameters(), 
-                        self.trainer.config.max_norm,
-                        self.trainer.config.max_norm)
-        self.trainer.fabric.log("grad_clip/grad_norm",total_norm,step=self.trainer.global_step)
-        self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
+                        self.trainer.configs.max_norm,
+                        self.trainer.configs.max_norm)
+        if self.trainer.configs.log_clip_info:
+            self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
+            norm = self.trainer.configs.max_norm if clipped else total_norm
+            self.trainer.fabric.log("grad_clip/real_grad_norm",norm,step=self.trainer.global_step)
+            self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
