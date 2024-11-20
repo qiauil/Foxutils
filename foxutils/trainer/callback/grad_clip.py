@@ -182,7 +182,7 @@ class EmaGradClip(Callback):
                 max_norm=self.trainer.configs.emagc_max_norm_ratio*self._current_ema2,
                 clip_norm=self.trainer.configs.emagc_clip_norm_ratio*self._current_ema1
             )
-        norm=self.trainer.configs.emagc_clip_norm_ratio*self._current_ema1 if clipped else total_norm
+        norm=self.trainer.configs.emagc_clip_norm_ratio*self._current_ema1 if clipped and self.ema_index!=0 else total_norm
         self._record_norm(norm)
         if self.trainer.configs.log_clip_info:
             self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
