@@ -371,8 +371,6 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         losses=[]
         with torch.no_grad():
             for batch_idx,batch in enumerate(self.configure_validation_it_bar(self.validation_loader,default_desc=default_it_bar_desc)):
-                if self.should_stop:
-                    break
                 self.fabric.call("on_validation_batch_start",batch=batch,batch_idx=batch_idx)
                 loss=self.validation_step(self.model,batch,batch_idx)
                 if loss is not None:

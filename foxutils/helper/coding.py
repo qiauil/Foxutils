@@ -154,19 +154,19 @@ class ConfigurationsHandler():
         if not hasattr(self,"_configs"):
             self._configs=GeneralDataClass()
         if not mandatory and default_value is not None and default_value_func is not None:
-            raise Exception("Default value and default value func must not be set at the same time for non-mandatory configuration.")
+            raise Exception(f"Default value and default value func of {name} must not be set at the same time for non-mandatory configuration.")
         if mandatory and (default_value is not None or default_value_func is not None):
-            raise Exception("Default value or default value func must not be set for mandatory configuration.")
+            raise Exception(f"Default value or default value func of {name} must not be set for mandatory configuration.")
         if default_value is not None and not isinstance(default_value,value_type):
-            raise Exception("Default value must be {}, but find {}.".format(value_type,type(default_value)))
+            raise Exception("Default value of {} must be {}, but find {}.".format(name, value_type,type(default_value)))
         if options is not None:
             if type(options)!=list:
-                raise Exception("Option must be list, but find {}.".format(type(options)))
+                raise Exception("Option of {} must be list, but find {}.".format(name,type(options)))
             if len(options)==0:
-                raise Exception("Option must not be empty.")
+                raise Exception(f"Option of {name} must not be empty.")
             for item in options:
                 if not isinstance(item,value_type):
-                    raise Exception("Option must be list of {}, but find {}.".format(value_type,type(item)))
+                    raise Exception("Option of {} must be list of {}, but find {}.".format(name,value_type,type(item)))
         self._configs_feature[name]={
             "default_value_func":default_value_func, #default_value_func must be a function with one parameter, which is the current configures
             "mandatory":mandatory,
@@ -215,7 +215,11 @@ class ConfigurationsHandler():
         """
         for key in kwargs.keys():
             if key not in self._configs_feature.keys():
-                raise Exception("{} is not a supported configuration.".format(key))
+                if self.is_strict_model:
+                    raise Exception("{} is not a supported configuration.".format(key))
+                else:
+                    print("Warning: {} is not a supported configuration.".format(key))
+                    continue
             if self._configs_feature[key]["value_type"] is not None and not isinstance(kwargs[key],self._configs_feature[key]["value_type"]):
                 raise Exception("{} must be {}, but find {}.".format(key,self._configs_feature[key]["value_type"],type(kwargs[key])))
             if self._configs_feature[key]["options"] is not None and kwargs[key] not in self._configs_feature[key]["options"]:
@@ -224,6 +228,15 @@ class ConfigurationsHandler():
             self._configs_feature[key]["in_func_ran"]=False
             self._configs_feature[key]["out_func_ran"]=False
         self._config_changed=True
+
+    def set_strict_model(self,strict_model:bool):
+        self._strict_model=strict_model
+    
+    @property    
+    def is_strict_model(self):
+        if not hasattr(self,"_strict_model"):
+            return True
+        return self._strict_model
     
     @property
     def configs(self):

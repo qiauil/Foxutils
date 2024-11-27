@@ -5,6 +5,7 @@ import copy
 import threading
 import contextlib
 import os
+from typing import Any, Mapping
 
 @torch.no_grad()
 def ema_update(ema_model_tuple, current_model_tuple, ema_coef, ema_step):
@@ -130,7 +131,7 @@ class EMAWeightsCallback(Callback):
         self.ema_step= state_dict['ema_step']
         self.trainer.configs.ema_coef = state_dict['ema_coef']
     
-    def on_state_register(self, state_dict: torch.Dict[str, torch.Any]):
+    def on_state_register(self, state_dict: Mapping[str, Any]):
         state_dict['ema'] = self
         
     def on_train_start(self):
