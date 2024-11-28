@@ -28,6 +28,7 @@ class InfoCallback(Callback):
         nn_parameters = filter(lambda p: p.requires_grad, self.trainer.model.parameters())
         self.trainer.info("number of trainable model parameters: {}".format(sum([np.prod(p.size()) for p in nn_parameters])))
         self.trainer.info(f"training data set has {self.trainer.len_train_dataset} samples")
+        self.trainer.info(f"number of training iterations: {len(self.trainer.train_loader)*self.trainer.configs.num_epochs}")
         if self.trainer.len_val_dataset>0:
             self.trainer.info(f"validation data set has {self.trainer.len_val_dataset} samples")
         else:
