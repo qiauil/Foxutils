@@ -65,13 +65,13 @@ def run_tasks():
             raise ValueError("No previous work done.")
         dir_list = [folder_name for folder_name in os.listdir(previous_folder) if os.path.isdir(previous_folder+folder_name)]
         folder_name = sorted(dir_list,  key=lambda x: os.path.getmtime(os.path.join(previous_folder, x)))[-1]
-        undo_file=os.path.join(previous_folder, folder_name, "done_tasks")
+        undo_file=os.path.join(previous_folder, folder_name, "done_tasks"+tag)
     else:
         undo_file="./{}{}".format(args.file,tag)
     timeLabel = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time()))
     working_dir="./task_records{}/{}/".format(tag,timeLabel)
     os.makedirs(working_dir,exist_ok=True)
-    done_file=os.path.join(working_dir,"done_tasks")
+    done_file=os.path.join(working_dir,"done_tasks"+tag)
     def output(info):
         if not args.quiet:
             print(info)
