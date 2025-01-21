@@ -135,7 +135,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                                                     batch_size=self.configs.batch_size_train, 
                                                     **self.configs.train_dataloader_configs.to_dict(),
                                                     shuffle=True,
-                                                    drop_last=False
+                                                    drop_last=True
                                                     ))
         self.len_train_dataset = len(train_loader.dataset)
         if validation_dataset is not None:
@@ -143,7 +143,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                                     batch_size=self.configs.batch_size_val, 
                                     **self.configs.validation_dataloader_configs.to_dict(),
                                     shuffle=True,
-                                    drop_last=False
+                                    drop_last=True
                                     ))
             self.len_val_dataset = len(validation_loader.dataset)
         else:
@@ -336,18 +336,20 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                 break
             self.global_step += 1
             self.fabric.call("on_train_batch_start",batch=batch,batch_idx=batch_idx)
-            loss=self.train_step(self.model,batch,batch_idx)
-            if loss is not None:
-                if isinstance(loss,torch.Tensor): #IF you don't want to backpropagate the loss, you can return None or a float value loss
-                    self.fabric.backward(loss)
-                    losses.append(loss.item())
-                else:
-                    losses.append(loss)
-                self.add_train_it_bar_info(**{it_bar_tag:losses[-1]})
-                if self.configs.log_iteration_loss:
-                    self.fabric.log(iteration_loss_tag,losses[-1],step=self.global_step)
-            self.fabric.call("on_train_batch_end",batch=batch,batch_idx=batch_idx,batch_loss=loss)
-            if self.global_step % self.configs.grad_accum_steps  == 0:
+            is_accumulating = self.global_step % self.configs.grad_accum_steps != 0
+            with self.fabric.no_backward_sync(self.model, enabled=is_accumulating):
+                loss=self.train_step(self.model,batch,batch_idx)
+                if loss is not None:
+                    if isinstance(loss,torch.Tensor): #IF you don't want to backpropagate the loss, you can return None or a float value loss
+                        self.fabric.backward(loss)
+                        losses.append(loss.item())
+                    else:
+                        losses.append(loss)
+                    self.add_train_it_bar_info(**{it_bar_tag:losses[-1]})
+                    if self.configs.log_iteration_loss:
+                        self.fabric.log(iteration_loss_tag,losses[-1],step=self.global_step)
+                self.fabric.call("on_train_batch_end",batch=batch,batch_idx=batch_idx,batch_loss=loss)
+            if not is_accumulating:
                 self.fabric.call("on_before_optimizer_step")
                 self.optimizer.step()
                 #self.fabric.call("on_after_optimizer_step")
