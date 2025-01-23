@@ -76,28 +76,30 @@ def run_tasks():
         if not args.quiet:
             print(info)
     
-    with open(done_file,"w") as fw_done:
-        job_idx=1
-        while True:
-            with open(undo_file,"r") as fr:
-                lines=fr.readlines()  
-            if len(lines) == 0:
-                break      
-            for i in range(len(lines)):
-                command=lines.pop(0)
-                if valid(command):
-                    break
+    
+    job_idx=1
+    while True:
+        with open(undo_file,"r") as fr:
+            lines=fr.readlines()  
+        if len(lines) == 0:
+            break      
+        for i in range(len(lines)):
+            command=lines.pop(0)
+            if valid(command):
+                break
+            with open(done_file,"w") as fw_done:
                 fw_done.write(command)
-            with open(undo_file,"w") as fw:     
-                for line in lines:
-                    fw.write(line.strip()+os.linesep)
-            fw.close()  
-            log_name=os.path.join(working_dir,"job_{}.log".format(job_idx))
-            output('Working on job{}: "{}", {} jobs left'.format(job_idx,command.strip(),num_valid(lines)))
-            output("Redirect the output to {}".format(log_name))
-            output("")
-            os.system(command.strip()+" > {}".format(log_name))
-            job_idx+=1
+        with open(undo_file,"w") as fw:     
+            for line in lines:
+                fw.write(line.strip()+os.linesep)
+        fw.close()  
+        log_name=os.path.join(working_dir,"job_{}.log".format(job_idx))
+        output('Working on job{}: "{}", {} jobs left'.format(job_idx,command.strip(),num_valid(lines)))
+        output("Redirect the output to {}".format(log_name))
+        output("")
+        os.system(command.strip()+" > {}".format(log_name))
+        job_idx+=1
+        with open(done_file,"w") as fw_done:
             fw_done.write(command)
     output("All work done. There are no remaining commands in the undo list.")
 
