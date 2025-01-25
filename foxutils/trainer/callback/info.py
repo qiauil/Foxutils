@@ -1,10 +1,10 @@
-from .callback_abc import Callback
+from ._basis import Callback
 import os
 import numpy as np
 class InfoCallback(Callback):
     
-    def __init__(self, trainer) -> None:
-        super().__init__(trainer)
+    def __init__(self) -> None:
+        super().__init__()
     
     def on_train_start(self):
         """

@@ -1,6 +1,6 @@
 #usr/bin/python3
 # -*- coding: UTF-8 -*-
-from .callback_abc import Callback
+from ._basis import Callback
 import time
 import datetime
 import yaml

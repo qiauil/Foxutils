@@ -1,6 +1,6 @@
 #usr/bin/python3
 # -*- coding: UTF-8 -*-
-from .basic_trainer import Trainer
+from .trainer import Trainer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch
 

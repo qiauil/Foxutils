@@ -424,6 +424,8 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                       callbacks:Union[Callback,Sequence[Callback]]):
         if not isinstance(callbacks,Sequence):
             callbacks = [callbacks]
+        for callback in callbacks:
+            callback.register_trainer(self)
         self.callbacks.extend(callbacks)
 
     def add_fabric_plugins(self,

@@ -1,4 +1,4 @@
-from .callback_abc import Callback
+from ._basis import Callback
 import torch
 from typing import Optional, List, Tuple, Dict, Union, Iterable
 from torch import Tensor
@@ -107,46 +107,38 @@ def _clip_grad_norm(
     return total_norm, clipped
 
 class EmaGradClip(Callback):
+    """
+    Exponential moving average gradient clipping
+
+    Args:
+        emagc_grad_coef1: Exponential moving average coefficient for EMA gradient norm recording
+        emagc_grad_coef2: Exponential moving average coefficient for EMA gradient norm recording
+        emagc_max_norm_ratio: Critical ratio for gradient clipping
+        emagc_clip_norm_ratio: Ratio for gradient clipping
+        log_clip_info: whether to log the clip info
+    
+    """
 
     def __init__(self, 
-                 trainer, 
-                 ) -> None:
-        super().__init__(trainer)
-        trainer.add_config_item(
-            name='emagc_grad_coef1',
-            group="ema_grad_clip",
-            default_value=0.9,
-            value_type=float,
-            description='Exponential moving average coefficient for EMA gradient norm recording'
-        )
-        trainer.add_config_item(
-            name='emagc_grad_coef2',
-            group="ema_grad_clip",
-            default_value=0.99,
-            value_type=float,
-            description='Exponential moving average coefficient for EMA gradient norm recording'
-        )
-        trainer.add_config_item(
-            name='emagc_max_norm_ratio',
-            group="ema_grad_clip",
-            default_value=2.0,
-            value_type=float,
-            description='Critical ratio for gradient clipping'
-        )
-        trainer.add_config_item(
-            name='emagc_clip_norm_ratio',
-            group="ema_grad_clip",
-            default_value=1.1,
-            value_type=float,
-            description='Ratio for gradient clipping'
-        )
-        trainer.add_config_item(
-            name='log_clip_info',
-            group="ema_grad_clip",
-            default_value=True,
-            value_type=bool,
-            description='whether to log the clip info'
-        )
+                 emagc_grad_coef1:float=0.9,
+                    emagc_grad_coef2:float=0.99,
+                    emagc_max_norm_ratio:float=2.0,
+                    emagc_clip_norm_ratio:float=1.1,
+                    log_clip_info:bool=True) -> None:
+        """
+        Args:
+            emagc_grad_coef1: Exponential moving average coefficient for EMA gradient norm recording
+            emagc_grad_coef2: Exponential moving average coefficient for EMA gradient norm recording
+            emagc_max_norm_ratio: Critical ratio for gradient clipping
+            emagc_clip_norm_ratio: Ratio for gradient clipping
+            log_clip_info: whether to log the clip info
+        """
+        super().__init__()
+        self.emagc_grad_coef1=emagc_grad_coef1
+        self.emagc_grad_coef2=emagc_grad_coef2
+        self.emagc_max_norm_ratio=emagc_max_norm_ratio
+        self.emagc_clip_norm_ratio=emagc_clip_norm_ratio
+        self.log_clip_info=log_clip_info
         self._grad_norm_ema1=0.0
         self._grad_norm_ema2=0.0
         self.ema_index=0
@@ -160,16 +152,16 @@ class EmaGradClip(Callback):
 
     def _record_norm(self,new_norm:float):
         self.ema_index+=1
-        self._grad_norm_ema1=self.trainer.configs.emagc_grad_coef1*self._grad_norm_ema1+(1-self.trainer.configs.emagc_grad_coef1)*new_norm
-        self._grad_norm_ema2=self.trainer.configs.emagc_grad_coef2*self._grad_norm_ema2+(1-self.trainer.configs.emagc_grad_coef2)*new_norm
+        self._grad_norm_ema1=self.emagc_grad_coef1*self._grad_norm_ema1+(1-self.emagc_grad_coef1)*new_norm
+        self._grad_norm_ema2=self.emagc_grad_coef2*self._grad_norm_ema2+(1-self.emagc_grad_coef2)*new_norm
 
     @property
     def _current_ema1(self):
-        return self._grad_norm_ema1/(1-self.trainer.configs.emagc_grad_coef1**self.ema_index)
+        return self._grad_norm_ema1/(1-self.emagc_grad_coef1**self.ema_index)
 
     @property
     def _current_ema2(self):
-        return self._grad_norm_ema2/(1-self.trainer.configs.emagc_grad_coef2**self.ema_index)
+        return self._grad_norm_ema2/(1-self.emagc_grad_coef2**self.ema_index)
 
     def on_before_optimizer_step(self):
         if self._grad_norm_ema2==0.0:
@@ -179,12 +171,12 @@ class EmaGradClip(Callback):
         else:
             total_norm, clipped = _clip_grad_norm(
                 self.trainer.model.parameters(),
-                max_norm=self.trainer.configs.emagc_max_norm_ratio*self._current_ema2,
-                clip_norm=self.trainer.configs.emagc_clip_norm_ratio*self._current_ema1
+                max_norm=self.emagc_max_norm_ratio*self._current_ema2,
+                clip_norm=self.emagc_clip_norm_ratio*self._current_ema1
             )
-        norm=self.trainer.configs.emagc_clip_norm_ratio*self._current_ema1 if clipped and self.ema_index!=0 else total_norm
+        norm=self.emagc_clip_norm_ratio*self._current_ema1 if clipped and self.ema_index!=0 else total_norm
         self._record_norm(norm)
-        if self.trainer.configs.log_clip_info:
+        if self.log_clip_info:
             self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
             self.trainer.fabric.log("grad_clip/ema_grad_norm_1",self._current_ema1,step=self.trainer.global_step)
             self.trainer.fabric.log("grad_clip/ema_grad_norm_2",self._current_ema2,step=self.trainer.global_step)
@@ -193,29 +185,27 @@ class EmaGradClip(Callback):
         
 class ConstantGradClip(Callback):
     
-    def __init__(self, trainer) -> None:
-        super().__init__(trainer)
-        trainer.add_config_item(
-            name='max_norm',
-            group="grad_clip",
-            default_value=1.0,
-            value_type=float,
-            description='Maximum norm for gradient clipping'
-        )
-        trainer.add_config_item(
-            name='log_clip_info',
-            group="ema_grad_clip",
-            default_value=True,
-            value_type=bool,
-            description='whether to log the clip info'
-        )
+    def __init__(self,
+                 max_norm:int=1.0,
+                 log_clip_info:bool=True) -> None:
+        """
+        Constant gradient clipping
+        
+        Args:
+            max_norm: max norm of the gradients
+            log_clip_info: whether to log the clip info
+        """
+
+        super().__init__()
+        self.max_norm=max_norm
+        self.log_clip_info=log_clip_info
         
     def on_before_optimizer_step(self):
         total_norm, clipped=_clip_grad_norm(self.trainer.model.parameters(), 
-                        self.trainer.configs.max_norm,
-                        self.trainer.configs.max_norm)
-        if self.trainer.configs.log_clip_info:
+                        self.max_norm,
+                        self.max_norm)
+        if self.log_clip_info:
             self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
-            norm = self.trainer.configs.max_norm if clipped else total_norm
+            norm = self.max_norm if clipped else total_norm
             self.trainer.fabric.log("grad_clip/real_grad_norm",norm,step=self.trainer.global_step)
             self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
