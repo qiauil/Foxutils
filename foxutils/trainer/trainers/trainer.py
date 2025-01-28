@@ -47,6 +47,11 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
     model_structure_path:str
     final_weights_path: str
 
+    save_configs: bool
+    save_separate_config: bool
+    save_config_with_notion: bool
+    config_name: str
+
     def __init__(self) -> None:
         self.register_configs()
         self.callbacks = [self, 
@@ -55,6 +60,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                           SaveLatestCallback(self)]
         self.postprocessors = []
         self.fabric_plugins = []
+        self.configure_config_save_mode()
 
     def info(self, msg):
         if self.fabric.local_rank == 0:
@@ -185,19 +191,26 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                                                              final_lr=self.configs.final_lr,
                                                              epochs=self.configs.num_epochs,
                                                              warmup_epoch=self.configs.warmup_epoch))
-        
+
+    def configure_config_save_mode(self,
+                                   save_separate_config:bool=True,
+                                   save_config_with_notion:bool=True,
+                                   config_name:str="config",
+                                   save_configs:bool=True):
+        self.save_separate_config = save_separate_config
+        self.save_config_with_notion = save_config_with_notion
+        self.config_file_name = config_name
+        self.save_configs=save_configs
+
     def _set_paths(self,ckpt_path:str):
         self.run_dir = os.path.join(self.configs.project_path, self.configs.run_name, self.configs.version)
         self.record_path = os.path.join(self.run_dir, "event.log")
         self.logger_dir = os.path.join(self.run_dir, "logs",)
         self.ckpt_dir = os.path.join(self.run_dir, "checkpoint")
-        self.config_dir = os.path.join(self.run_dir, "configs")
         self.model_structure_path=os.path.join(self.run_dir,"model_structure.pt")
         self.final_weights_path=os.path.join(self.run_dir, "final_weights.ckpt")
         latest_ckpt_path=None
         if os.path.exists(self.run_dir):
-            if not os.path.exists(self.config_dir):
-                raise RuntimeError("The run directory already exists, but the config file does not exist. Can not restart training. Please check the run directory.")
             ckpts=os.listdir(self.ckpt_dir)
             if "latest.ckpt" in ckpts:
                 latest_ckpt_path = os.path.join(self.ckpt_dir, "latest.ckpt")
@@ -214,7 +227,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             self.ckpt_path=ckpt_path if ckpt_path else latest_ckpt_path  
         else:
             self.ckpt_path=None
-        for dir_i in [self.run_dir, self.ckpt_dir, self.logger_dir,self.config_dir]:
+        for dir_i in [self.run_dir, self.ckpt_dir, self.logger_dir]:
             os.makedirs(dir_i,exist_ok=True)
 
     def _compile_model(self,model:nn.Module):
@@ -237,7 +250,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             postprocess_dir=os.path.join(self.run_dir,"postprocess",postprocessor.processor_name)
             os.makedirs(postprocess_dir,exist_ok=True)
             return_value=postprocessor.run(model=self.model,
-                              config_dict=self.str_dict(),
+                              config_dict=self.config_dict(),
                               working_path= postprocess_dir,
                               fabric=self.fabric)
             if return_value is not None:
@@ -250,6 +263,17 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
+    def _save_configs(self):
+        if self.save_configs:
+            if self.save_separate_config:
+                config_path=os.path.join(self.run_dir,self.config_file_name)
+                os.makedirs(config_path,exist_ok=True)
+            else:
+                config_path= os.path.join(self.run_dir,self.config_file_name+".yaml")
+            self.save_configs_to_yaml(yaml_path_dir=config_path,
+                            with_description=self.save_config_with_notion,)
+            self.info(f"Configs saved to {config_path}")
+
     @property
     def should_save_ckpt(self):
         if self.configs.checkpoint_save_frequency == 0 or self.current_epoch == self.configs.num_epochs:
@@ -258,7 +282,6 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             return True
         return False
         
-
     def train(self,
               model:nn.Module,
               train_dataset,
@@ -273,7 +296,6 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             self.read_configs_from_yaml(config_path_dir)
         self.set_config_items(**kwargs)
         self._set_paths(ckpt_path)
-        self.save_configs_to_yaml(self.config_dir)
         if self.configs.save_model_structure:
             torch.save(model,self.model_structure_path)
         # setup training environment
@@ -281,6 +303,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         self.configure_loggers()
         self.configure_fabric()
         self.configure_info_recorder()
+        self._save_configs()
         self.train_loader, self.validation_loader = self.configure_dataloader(train_dataset, validation_dataset)
         optimizer=self.configure_optimizer(model)
         self.lr_scheduler=self.configure_lr_scheduler(optimizer)

@@ -6,3 +6,4 @@ tqdm
 tensorboard
 scipy
 ipywidgets
+omegaconf

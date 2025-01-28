@@ -8,18 +8,25 @@ def get_default_config_arg_parser(arg_parser:Optional[ArgumentParser],
                                   flag="--config",
                                   metavar="config.yaml",
                                   help="paths to base configs. Loaded from left-to-right. "
-                "Parameters can be overwritten or added with command-line options of the form `--key value`.",) -> ArgumentParser:
+                "Parameters can be overwritten or added with command-line options of the form `--key value`.",
+                **kwargs) -> ArgumentParser:
     """
     Returns a default ArgumentParser for configuration files.
 
     Args:
         arg_parser (ArgumentParser, optional): An existing ArgumentParser. Defaults to None.
+        name (str, optional): The name of the argument. Defaults to "-c".
+        flag (str, optional): The flag of the argument. Defaults to "--config".
+        metavar (str, optional): The metavar of the argument. Defaults to "config.yaml".
+        help (str, optional): The help message of the argument. Defaults to "paths to base configs. Loaded from left-to-right. "
+                "Parameters can be overwritten or added with command-line options of the form `--key value`.".
+        **kwargs: Additional keyword arguments for the ArgumentParser.
 
     Returns:
         ArgumentParser: The ArgumentParser.
     """
     if arg_parser is None:
-        arg_parser = ArgumentParser()
+        arg_parser = ArgumentParser(**kwargs)
     arg_parser.add_argument(
         name,
         flag,
@@ -59,7 +66,11 @@ def load_external_config(config: DictConfig,
 def create_config_from_args(args: ArgumentParser,
                             config_key: str = "config",
                             default_config_path: Optional[str] = None,
-                            external_file_key: str = "_file"
+                            additional_config_files: Optional[list] = None,
+                            additional_configs: Optional[Union[DictConfig,dict]]=None,
+                            external_file_key: str = "_file",
+                            resolve=True,
+                            dict=False
                             ) -> OmegaConf:
     """
     Creates a configuration object from the parsed arguments.
@@ -81,7 +92,11 @@ def create_config_from_args(args: ArgumentParser,
             ```
             You can use `get_default_config_arg_parser` function to create the ArgumentParser.
         default_config_path (str, optional): The default configuration file path. Defaults to None. If not specified, the value of the `config_key` needs to be a full path.
+        additional_config_files (list, optional): Additional configuration files to load. Defaults to None.
+        additional_configs (Union[DictConfig,dict], optional): Additional configurations to load. Defaults to None.
         external_file_key (str, optional): The key used to identify external files. Defaults to "_file".
+        resolve (bool, optional): Whether to resolve the configuration. Defaults to True.
+        dict (bool, optional): Whether to return the configuration as a dictionary. Defaults to False.
 
     Returns:
         OmegaConf: The configuration object.
@@ -91,10 +106,20 @@ def create_config_from_args(args: ArgumentParser,
         config_paths=[os.path.join(default_config_path,cfg) for cfg in getattr(opt, config_key)]
     else:
         config_paths = getattr(opt, config_key)
+    if additional_config_files is not None:
+        config_paths.extend(additional_config_files)
     configs = [load_external_config(OmegaConf.load(cfg_path),external_file_key=external_file_key) for cfg_path in config_paths]
+    if additional_configs is not None:
+        if isinstance(additional_configs,dict):
+            additional_configs=OmegaConf.create(additional_configs)
+        configs.append(additional_configs)
     cli = OmegaConf.from_dotlist(unknown)
-    config = OmegaConf.merge(*configs, cli)
-    return OmegaConf.create(config)
+    config = OmegaConf.create(OmegaConf.merge(*configs, cli))
+    if resolve:
+        OmegaConf.resolve(config)
+    if dict:
+        return OmegaConf.to_container(config)
+    return config
 
 def create_config_from_file(config_path: str) -> OmegaConf:
     """

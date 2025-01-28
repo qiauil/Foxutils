@@ -290,7 +290,7 @@ class ConfigurationsHandler():
         self.set_config_items(**yaml_configs)
         
     def to_yaml(self,only_optional=False,with_description=True):
-        output_dict=self.str_dict(only_optional,sort=True)
+        output_dict=self.config_dict(only_optional,sort=True)
         if with_description:
             yaml_str=""
             for key,value in output_dict.items():
@@ -314,7 +314,7 @@ class ConfigurationsHandler():
         with open(yaml_file,"w") as f:
             f.write(yaml_str)
     
-    def str_dict(self,only_optional=False,sort=True) -> dict:
+    def config_dict(self,only_optional=False,sort=True) -> dict:
         """
         Retrieves the current configurations as a dictionary whose item are all strs.
         
@@ -473,7 +473,7 @@ class GroupedConfigurationsHandler(ConfigurationsHandler):
         return text
 
     def to_yaml_group(self,only_optional=False,with_description=True):
-        output_dict=self.str_dict(only_optional,sort=True)
+        output_dict=self.config_dict(only_optional,sort=True)
         yaml_group={}
         for key,value in self._configs_feature.items():
             if value["group"] not in yaml_group.keys():
@@ -625,17 +625,17 @@ class GroupedConfigurationsHandler():
             with open(yaml_file,"w") as f:
                     f.write(self.to_yaml(only_optional,with_description))
     
-    def str_dict(self,
+    def config_dict(self,
                  only_optional=False,
                  sort=True,
                  grouped=False) -> dict:
         output_dict={}
         if grouped:
             for group in self._config_handlers.keys():
-                output_dict[group]=self._config_handlers[group].str_dict(only_optional,sort)
+                output_dict[group]=self._config_handlers[group].config_dict(only_optional,sort)
         else:
             for group in self._config_handlers.keys():
-                for key, value in self._config_handlers[group].str_dict(only_optional,sort):
+                for key, value in self._config_handlers[group].config_dict(only_optional,sort):
                     output_dict[key]=value
      
     def info_available_configs(self,print_info=True,sort=True) -> str:

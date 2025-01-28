@@ -11,7 +11,7 @@ class InfoCallback(Callback):
         self.trainer.info("="*100)
         self.trainer.info("Training configurations:")
         self.trainer.info("="*100)
-        output_dict=self.trainer.str_dict(False,sort=True)
+        output_dict=self.trainer.config_dict(False,sort=True)
         para_group={}
         for key,value in self.trainer._configs_feature.items():
             if value["group"] not in para_group.keys():

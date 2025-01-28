@@ -9,27 +9,7 @@ from tqdm.auto import tqdm
 from .postprocess import PostProcessor
 from lightning.fabric import Fabric
 from lightning.fabric.loggers import TensorBoardLogger, CSVLogger, logger
-
-def read_configs(path_config_file) -> dict:
-    '''
-    Read the training configurations from a yaml file.
-    
-    Args:
-        path_config_file: str, path to the yaml file of the training configurations.
-    
-    Returns:
-        dict: The training configurations.
-    '''
-    config_dict={}
-    if os.path.isdir(path_config_file):
-        paths=[os.path.join(path_config_file,group) for group in os.listdir(path_config_file)]
-    else:
-        paths=[path_config_file]
-    for yaml_path in paths:
-        with open(yaml_path,"r") as f:
-            yaml_configs=yaml.safe_load(f)
-        config_dict.update(yaml_configs)
-    return config_dict
+from omegaconf import OmegaConf
 
 def _available_ckpt_ids(ckpt_dir:str) -> List[int]:
     available_ckpts=[]
@@ -85,7 +65,17 @@ class TrainedVersion:
             dict: The training configurations.
         '''
         if self._config_dict is None:
-            self._config_dict = read_configs(self.config_dir)
+            configs_paths=[]
+            for path,folders,files in os.walk(self.config_dir):
+                for file in files:
+                    if file.endswith(".yaml"):
+                        configs_paths.append(os.path.join(path,file))
+            if len(configs_paths)==0:
+                self._config_dict={}
+            else:
+                configs_dict=[OmegaConf.load(path) for path in configs_paths]
+                self._config_dict=OmegaConf.merge(*configs_dict)
+                self._config_dict=OmegaConf.to_container(self._config_dict)
         return self._config_dict
     
     @property

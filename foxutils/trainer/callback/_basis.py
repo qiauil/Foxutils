@@ -2,16 +2,16 @@
 # -*- coding: UTF-8 -*-
 
 from ..mixin import CallbackMixin
-from ..trainers import Trainer
+#from ..trainers import Trainer
 class Callback(CallbackMixin):
     
     def __init__(self) -> None:
-        self._trainer:Trainer = None
+        self._trainer = None
     
-    def regisiter_trainer(self, trainer:Trainer) -> None:
+    def regisiter_trainer(self, trainer) -> None:
         self._trainer = trainer
 
     @property
-    def trainer(self) -> Trainer:
+    def trainer(self):
         if self._trainer is None:
             raise ValueError("Trainer is not regisitered yet.")
