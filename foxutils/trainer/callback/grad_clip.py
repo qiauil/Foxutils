@@ -106,7 +106,7 @@ def _clip_grad_norm(
 
     return total_norm, clipped
 
-class EmaGradClip(Callback):
+class EMAGradClipCallback(Callback):
     """
     Exponential moving average gradient clipping
 

@@ -8,8 +8,8 @@ import os
 
 class TimeSummaryCallback(Callback):
     
-    def __init__(self, trainer) -> None:
-        super().__init__(trainer)
+    def __init__(self) -> None:
+        super().__init__()
         self.start_time = 0.0
         self.train_time = 0.0
         self.train_time_accumulated = 0.0

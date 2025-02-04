@@ -8,10 +8,11 @@ class Callback(CallbackMixin):
     def __init__(self) -> None:
         self._trainer = None
     
-    def regisiter_trainer(self, trainer) -> None:
+    def register_trainer(self, trainer) -> None:
         self._trainer = trainer
 
     @property
     def trainer(self):
         if self._trainer is None:
-            raise ValueError("Trainer is not regisitered yet.")
+            raise ValueError("Trainer is not registered yet.")
+        return self._trainer

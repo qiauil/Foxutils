@@ -10,7 +10,6 @@ import torch.nn as nn
 from ..mixin import *
 from ..callback import *
 from ..lr_lambda import *
-from ..callback import TimeSummaryCallback,InfoCallback
 from ..postprocess import PostProcessor
 
 from lightning.fabric import Fabric,seed_everything
@@ -54,10 +53,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
 
     def __init__(self) -> None:
         self.register_configs()
-        self.callbacks = [self, 
-                          InfoCallback(self), 
-                          TimeSummaryCallback(self), 
-                          SaveLatestCallback(self)]
+        self.callbacks = [self]
         self.postprocessors = []
         self.fabric_plugins = []
         self.configure_config_save_mode()
