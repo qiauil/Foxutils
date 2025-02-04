@@ -202,7 +202,8 @@ class TrainedVersion:
     def load_postprocessor(self,
                            postprocessor:Union[PostProcessor,Sequence[PostProcessor]],
                            p_bar_leave=True,
-                           fabric:Union[Literal["auto"],Fabric,None]="auto"
+                           fabric:Union[Literal["auto"],Fabric,None]="auto",
+                           ckpt_name:Optional[str]=None,
                            ):
         if not isinstance(postprocessor,Sequence):
             postprocessor=[postprocessor]
@@ -215,7 +216,12 @@ class TrainedVersion:
             postprocess_dir=os.path.join(self.postprocess_dir,processor.processor_name)
             os.makedirs(postprocess_dir,exist_ok=True)
             enmu.set_description(f"Running postprocessor: {processor.processor_name}")
-            model=fabric.setup(self.final_network)
+            if ckpt_name is not None:
+                model=self.network_structure
+                model=self.fabric.load(os.path.join(self.ckpt_dir,ckpt_name),{"model":model})
+                model=self.fabric.setup(model)
+            else:
+                model=fabric.setup(self.final_network)
             return_value=processor.run(model,
                                        self.configs,
                                        postprocess_dir,
@@ -246,7 +252,9 @@ class TrainedRun:
     
     def load_postprocessor(self,
                            postprocessor:Union[PostProcessor,Sequence[PostProcessor]],
-                           p_bar_leave=True
+                           p_bar_leave=True,
+                           fabric:Union[Literal["auto"],Fabric,None]="auto",
+                           ckpt_name:Optional[str]=None,
                            ):
         if len(self) == 1:
             self[0].load_postprocessor(postprocessor,False)
@@ -254,7 +262,7 @@ class TrainedRun:
             enmu=tqdm(self,desc="Versions",leave=p_bar_leave)
             for run in enmu:
                 enmu.set_description(f"Version: {run.version}")
-                run.load_postprocessor(postprocessor,False)
+                run.load_postprocessor(postprocessor,False,fabric,ckpt_name)
         
 class TrainedProject:
     
@@ -283,7 +291,9 @@ class TrainedProject:
     
     def load_postprocessor(self,
                            postprocessor:Union[PostProcessor,Sequence[PostProcessor]],
-                           p_bar_leave=True
+                           p_bar_leave=True,
+                           fabric:Union[Literal["auto"],Fabric,None]="auto",
+                           ckpt_name:Optional[str]=None,
                            ):
         if len(self)==1:
             self[0].load_postprocessor(postprocessor,False)
@@ -291,4 +301,4 @@ class TrainedProject:
             enmu=tqdm(self,desc="Runs",leave=p_bar_leave)
             for run in enmu:
                 enmu.set_description(f"Run: {run.run_name}")
-                run.load_postprocessor(postprocessor,False)
+                run.load_postprocessor(postprocessor,False,fabric,ckpt_name)
