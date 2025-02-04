@@ -141,6 +141,12 @@ def load_object(config:Union[DictConfig,dict],
         config=OmegaConf.create(config)
     if not object_key in config:
         raise ValueError(f"Key {object_key} not found in the configuration")
-    object_params={} if not params_key in config else config[params_key]
+    object_params={}
+    if params_key in config:
+        for key,value in config[params_key].items():
+            if isinstance(value,dict) or isinstance(value,DictConfig):
+                if "_object" in value.keys():
+                    value=load_object(value)
+            object_params[key]=value
     obj_names=config[object_key].split(".")
     return getattr(importlib.import_module(".".join(obj_names[0:-1])),obj_names[-1])(**object_params)
