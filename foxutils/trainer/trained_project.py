@@ -231,10 +231,12 @@ class TrainedRun:
     def __init__(self,
                  project_path:str,
                  run_name:str,
-                 device:Union[Literal["auto","config"],Sequence]="auto") -> None:
+                 device:Union[Literal["auto","config"],Sequence]="auto",
+                 version_module=TrainedVersion) -> None:
         self.run_name=run_name
         self.version_names=os.listdir(os.path.join(project_path,run_name))
-        self.versions=[TrainedVersion(project_path,run_name,version,device) for version in self.version_names]
+        self.versions=[version_module(project_path,run_name,version,device) for version in self.version_names]
+        self.version_module=version_module
     
     def __getitem__(self,id:int) -> TrainedVersion:
         return self.versions[id]
@@ -260,7 +262,8 @@ class TrainedProject:
                  project_path:str,
                  white_list:Optional[Union[Sequence[str],str]]=None,
                  black_list:Optional[Union[Sequence[str],str]]=None,
-                 device:Union[Literal["auto","config"],Sequence]="auto") -> None:
+                 device:Union[Literal["auto","config"],Sequence]="auto",
+                 run_module=TrainedRun) -> None:
         if black_list is None:
             black_list=[]
         elif isinstance(black_list,str):
@@ -270,7 +273,7 @@ class TrainedProject:
         elif isinstance(white_list,str):
             white_list=[white_list]
         self.run_names=[name for name in white_list if name not in black_list]
-        self.runs=[TrainedRun(project_path,run_name,device) for run_name in self.run_names]
+        self.runs=[run_module(project_path,run_name,device) for run_name in self.run_names]
         
     def __getitem__(self,id:int) -> TrainedRun:
         return self.runs[id]
