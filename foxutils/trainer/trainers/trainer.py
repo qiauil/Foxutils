@@ -50,6 +50,11 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
     save_separate_config: bool
     save_config_with_notion: bool
     config_name: str
+    
+    train_batch_loss:float
+    train_epoch_loss:float
+    validation_batch_loss:float
+    validation_epoch_loss:float
 
     def __init__(self) -> None:
         self.register_configs()
@@ -213,8 +218,8 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             else:
                 latest_ckpt_ids = [int(x.split(".")[0].split("_")[-1]) for x in ckpts]
                 if len(latest_ckpt_ids)!=0:
-                    latest_ckpt_ids = max(latest_ckpt_ids)
-                    latest_ckpt_path = os.path.join(self.ckpt_dir, "epoch_{}.ckpt".format(latest_ckpt_ids))
+                    latest_ckpt_ids = np.argsort(latest_ckpt_ids)[-1]
+                    latest_ckpt_path = os.path.join(self.ckpt_dir, ckpts[latest_ckpt_ids])
         if ckpt_path is not None and latest_ckpt_path is not None:
             raise RuntimeError("Detected unfinished training in the run directory, but also provided a different checkpoint path. Please unset the `ckpt_path` or specify different `project_path`/`run_name`.")
         if latest_ckpt_path is not None and os.path.exists(self.final_weights_path):
@@ -357,17 +362,16 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             self.fabric.call("on_train_batch_start",batch=batch,batch_idx=batch_idx)
             is_accumulating = self.global_step % self.configs.grad_accum_steps != 0
             with self.fabric.no_backward_sync(self.model, enabled=is_accumulating):
-                loss=self.train_step(self.model,batch,batch_idx)
-                if loss is not None:
-                    if isinstance(loss,torch.Tensor): #IF you don't want to backpropagate the loss, you can return None or a float value loss
-                        self.fabric.backward(loss)
-                        losses.append(loss.item())
-                    else:
-                        losses.append(loss)
+                self.train_batch_loss=self.train_step(self.model,batch,batch_idx)
+                if self.train_batch_loss is not None:
+                    if isinstance(self.train_batch_loss,torch.Tensor): #IF you don't want to backpropagate the loss, you can return None or a float value loss
+                        self.fabric.backward(self.train_batch_loss)
+                        self.train_batch_loss=self.train_batch_loss.item()
+                    losses.append(self.train_batch_loss)
                     self.add_train_it_bar_info(**{it_bar_tag:losses[-1]})
                     if self.configs.log_iteration_loss:
                         self.fabric.log(iteration_loss_tag,losses[-1],step=self.global_step)
-                self.fabric.call("on_train_batch_end",batch=batch,batch_idx=batch_idx,batch_loss=loss)
+                self.fabric.call("on_train_batch_end",batch=batch,batch_idx=batch_idx,batch_loss=self.train_batch_loss)
             if not is_accumulating:
                 self.fabric.call("on_before_optimizer_step")
                 self.optimizer.step()
@@ -378,9 +382,9 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             self._refresh_train_it_bar()
         self.lr_scheduler.step()
         if len(losses)!=0:
-            losses = sum(losses)/len(losses)
-            self.fabric.log(epoch_loss_tag,losses,step=self.current_epoch)
-            self.add_epoch_bar_info(**{epoch_bar_tag:losses})
+            self.train_epoch_loss = sum(losses)/len(losses)
+            self.fabric.log(epoch_loss_tag,self.train_epoch_loss,step=self.current_epoch)
+            self.add_epoch_bar_info(**{epoch_bar_tag:self.train_epoch_loss})
         self.num_train_loop_called += 1
 
     def validation_loop(self,
@@ -393,16 +397,17 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         with torch.no_grad():
             for batch_idx,batch in enumerate(self.configure_validation_it_bar(self.validation_loader,default_desc=default_it_bar_desc)):
                 self.fabric.call("on_validation_batch_start",batch=batch,batch_idx=batch_idx)
-                loss=self.validation_step(self.model,batch,batch_idx)
-                if loss is not None:
-                    losses.append(loss.item())
+                self.validation_batch_loss=self.validation_step(self.model,batch,batch_idx)
+                if self.validation_batch_loss is not None:
+                    self.validation_batch_loss=self.validation_batch_loss.item()
+                    losses.append(self.validation_batch_loss)
                     self.add_validation_it_bar_info(**{it_bar_tag:losses[-1]})
-                self.fabric.call("on_validation_batch_end",batch=batch,batch_idx=batch_idx,batch_loss=loss)
+                self.fabric.call("on_validation_batch_end",batch=batch,batch_idx=batch_idx,batch_loss=self.validation_batch_loss)
                 self._refresh_validation_it_bar()
             if len(losses)!=0:
-                losses = sum(losses)/len(losses)
-                self.fabric.log(loss_tag,losses,step=self.current_epoch)
-                self.add_epoch_bar_info(**{epoch_bar_tag:losses})
+                self.validation_epoch_loss = sum(losses)/len(losses)
+                self.fabric.log(loss_tag,self.validation_epoch_loss,step=self.current_epoch)
+                self.add_epoch_bar_info(**{epoch_bar_tag:self.validation_epoch_loss})
         self.num_validation_loop_called += 1
 
     def train_step(self,model:nn.Module,batch:Any,batch_idx:int):
