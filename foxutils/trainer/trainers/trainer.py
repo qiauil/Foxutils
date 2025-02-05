@@ -142,7 +142,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                                                     batch_size=self.configs.batch_size_train, 
                                                     **self.configs.train_dataloader_configs.to_dict(),
                                                     shuffle=True,
-                                                    drop_last=True
+                                                    drop_last=self.configs.drop_last_train
                                                     ))
         self.len_train_dataset = len(train_loader.dataset)
         if validation_dataset is not None:
@@ -150,7 +150,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                                     batch_size=self.configs.batch_size_val, 
                                     **self.configs.validation_dataloader_configs.to_dict(),
                                     shuffle=True,
-                                    drop_last=True
+                                    drop_last=self.configs.drop_last_val
                                     ))
             self.len_val_dataset = len(validation_loader.dataset)
         else:

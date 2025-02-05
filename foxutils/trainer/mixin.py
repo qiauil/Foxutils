@@ -179,6 +179,16 @@ class TrainConfigMixin(GroupedConfigurationsHandler):
                              default_value={},
                              value_type=dict,
                              description="Additional configuration of validation dataloader",)
+        self.add_config_item("drop_last_train",
+                             group="control",
+                             default_value=True,
+                             value_type=bool,
+                             description="Whether to drop the last incomplete batch in training dataloader.")
+        self.add_config_item("drop_last_val",
+                                group="control",
+                                default_value=False,
+                                value_type=bool,
+                                description="Whether to drop the last incomplete batch in validation dataloader.")
               
     def register_configs(self):
         self.register_project_info_configs()
