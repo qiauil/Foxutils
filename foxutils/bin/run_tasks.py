@@ -87,8 +87,9 @@ def run_tasks():
             command=lines.pop(0)
             if valid(command):
                 break
-            with open(done_file,"w") as fw_done:
-                fw_done.write(command)
+        with open(done_file,"w") as fw_done:
+            fw_done.write(command)
+        fw_done.close()
         with open(undo_file,"w") as fw:     
             for line in lines:
                 fw.write(line.strip()+os.linesep)
