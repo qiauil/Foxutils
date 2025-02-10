@@ -53,6 +53,23 @@ def num_valid(lines):
             i+=1
     return i
 
+def update_undo_file(undo_file,undo_lines):
+    with open(undo_file,"w") as fw:     
+        for line in undo_lines:
+            fw.write(line.strip()+os.linesep)
+    fw.close()  
+    
+def update_done_file(done_file,new_done):
+    model="a" if os.path.exists(done_file) else "w"
+    with open(done_file,model) as fw:
+        fw.write(new_done.strip()+os.linesep)
+    fw.close()
+    
+def update_current_file(current_file,new_done):
+    with open(current_file,"w") as fw:
+        fw.write(new_done.strip())
+    fw.close()
+    
 def run_tasks():
     args = parse_args()
     if args.tag !="":
@@ -72,36 +89,32 @@ def run_tasks():
     working_dir="./task_records{}/{}/".format(tag,timeLabel)
     os.makedirs(working_dir,exist_ok=True)
     done_file=os.path.join(working_dir,"done_tasks"+tag)
+    current_file=os.path.join(working_dir,"current_task"+tag)
     def output(info):
         if not args.quiet:
             print(info)
-    
-    
     job_idx=1
     while True:
         with open(undo_file,"r") as fr:
-            lines=fr.readlines()  
+            lines=fr.readlines() 
+        fr.close() 
         if len(lines) == 0:
             break      
         for i in range(len(lines)):
             command=lines.pop(0)
             if valid(command):
                 break
-        with open(done_file,"w") as fw_done:
-            fw_done.write(command)
-        fw_done.close()
-        with open(undo_file,"w") as fw:     
-            for line in lines:
-                fw.write(line.strip()+os.linesep)
-        fw.close()  
+        update_undo_file(undo_file,lines)
+        update_current_file(current_file,command)
         log_name=os.path.join(working_dir,"job_{}.log".format(job_idx))
         output('Working on job{}: "{}", {} jobs left'.format(job_idx,command.strip(),num_valid(lines)))
         output("Redirect the output to {}".format(log_name))
         output("")
         os.system(command.strip()+" > {}".format(log_name))
         job_idx+=1
-        with open(done_file,"w") as fw_done:
-            fw_done.write(command)
+        update_done_file(done_file,command)
+    if os.exists(current_file):
+        os.remove(current_file)
     output("All work done. There are no remaining commands in the undo list.")
 
 if __name__ == "__main__":
