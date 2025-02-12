@@ -113,7 +113,7 @@ def run_tasks():
         os.system(command.strip()+" > {}".format(log_name))
         job_idx+=1
         update_done_file(done_file,command)
-    if os.exists(current_file):
+    if os.path.exists(current_file):
         os.remove(current_file)
     output("All work done. There are no remaining commands in the undo list.")
 
