@@ -16,7 +16,7 @@ def get_cosine_lambda(initial_lr,final_lr,epochs,warmup_epoch):
     """
     def cosine_lambda(idx_epoch):
         if idx_epoch < warmup_epoch:
-            return idx_epoch / warmup_epoch
+            return (idx_epoch+1) / (warmup_epoch+1)
         else:
             return 1-(1-(math.cos((idx_epoch-warmup_epoch)/(epochs-warmup_epoch)*math.pi)+1)/2)*(1-final_lr/initial_lr)
     return cosine_lambda
@@ -36,7 +36,7 @@ def get_linear_lambda(initial_lr,final_lr,epochs,warmup_epoch):
     """
     def linear_lambda(idx_epoch):
         if idx_epoch < warmup_epoch:
-            return idx_epoch / warmup_epoch
+            return (idx_epoch+1) / (warmup_epoch+1)
         else:
             return 1-((idx_epoch-warmup_epoch)/(epochs-warmup_epoch))*(1-final_lr/initial_lr)
     return linear_lambda
@@ -56,7 +56,7 @@ def get_constant_lambda(initial_lr,final_lr,epochs,warmup_epoch):
     """
     def constant_lambda(idx_epoch):
         if idx_epoch < warmup_epoch:
-            return idx_epoch / warmup_epoch
+            return (idx_epoch+1) / (warmup_epoch+1)
         else:
             return 1
     return constant_lambda
