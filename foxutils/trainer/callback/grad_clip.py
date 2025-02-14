@@ -124,7 +124,8 @@ class EMAGradClipCallback(Callback):
                     emagc_grad_coef2:float=0.99,
                     emagc_max_norm_ratio:float=2.0,
                     emagc_clip_norm_ratio:float=1.1,
-                    log_clip_info:bool=True) -> None:
+                    log_clip_info:bool=True,
+                    warmup_epoch=0) -> None:
         """
         Args:
             emagc_grad_coef1: Exponential moving average coefficient for EMA gradient norm recording
@@ -142,6 +143,7 @@ class EMAGradClipCallback(Callback):
         self._grad_norm_ema1=0.0
         self._grad_norm_ema2=0.0
         self.ema_index=0
+        self.warmup_epoch=warmup_epoch
    
     def _get_norm(self):
         total_norm = 0.0
@@ -164,24 +166,25 @@ class EMAGradClipCallback(Callback):
         return self._grad_norm_ema2/(1-self.emagc_grad_coef2**self.ema_index)
 
     def on_before_optimizer_step(self):
-        if self._grad_norm_ema2==0.0:
-            total_norm, clipped = _clip_grad_norm(self.trainer.model.parameters(), 
-                                                         max_norm=10000,
-                                                         clip_norm=1,)
-        else:
-            total_norm, clipped = _clip_grad_norm(
-                self.trainer.model.parameters(),
-                max_norm=self.emagc_max_norm_ratio*self._current_ema2,
-                clip_norm=self.emagc_clip_norm_ratio*self._current_ema1
-            )
-        norm=self.emagc_clip_norm_ratio*self._current_ema1 if clipped and self.ema_index!=0 else total_norm
-        self._record_norm(norm)
-        if self.log_clip_info:
-            self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
-            self.trainer.fabric.log("grad_clip/ema_grad_norm_1",self._current_ema1,step=self.trainer.global_step)
-            self.trainer.fabric.log("grad_clip/ema_grad_norm_2",self._current_ema2,step=self.trainer.global_step)
-            self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
-            self.trainer.fabric.log("grad_clip/real_grad_norm",norm,step=self.trainer.global_step)
+        if self.trainer.current_epoch>self.warmup_epoch:
+            if self._grad_norm_ema2==0.0:
+                total_norm, clipped = _clip_grad_norm(self.trainer.model.parameters(), 
+                                                            max_norm=10000,
+                                                            clip_norm=1,)
+            else:
+                total_norm, clipped = _clip_grad_norm(
+                    self.trainer.model.parameters(),
+                    max_norm=self.emagc_max_norm_ratio*self._current_ema2,
+                    clip_norm=self.emagc_clip_norm_ratio*self._current_ema1
+                )
+            norm=self.emagc_clip_norm_ratio*self._current_ema1 if clipped and self.ema_index!=0 else total_norm
+            self._record_norm(norm)
+            if self.log_clip_info:
+                self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
+                self.trainer.fabric.log("grad_clip/ema_grad_norm_1",self._current_ema1,step=self.trainer.global_step)
+                self.trainer.fabric.log("grad_clip/ema_grad_norm_2",self._current_ema2,step=self.trainer.global_step)
+                self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
+                self.trainer.fabric.log("grad_clip/real_grad_norm",norm,step=self.trainer.global_step)
         
 class ConstantGradClip(Callback):
     
