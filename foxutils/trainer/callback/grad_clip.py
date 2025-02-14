@@ -3,6 +3,7 @@ import torch
 from typing import Optional, List, Tuple, Dict, Union, Iterable
 from torch import Tensor
 from torch.utils._foreach_utils import _group_tensors_by_device_and_dtype, _has_foreach_support, _device_has_foreach_support
+import numpy as np
 
 def _clip_grad_norm(
         parameters: Union[torch.Tensor, Iterable[torch.Tensor]], 
@@ -51,7 +52,7 @@ def _clip_grad_norm(
             Default: ``None``
 
     Returns:
-        Total norm of the parameter gradients (viewed as a single vector).
+        Total norm of the parameter gradients (viewed as a single vector), whether clipping was applied.
     """
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]
@@ -105,6 +106,54 @@ def _clip_grad_norm(
                     g.mul_(clip_coef_clamped_device)
 
     return total_norm, clipped
+
+def _grad_norm(
+        parameters: Union[torch.Tensor, Iterable[torch.Tensor]], 
+        norm_type: float = 2.0,
+        foreach: Optional[bool] = None) -> torch.Tensor:
+    r"""Clip the gradient norm of an iterable of parameters.
+
+    The norm is computed.emagc_grad_coef2 over all gradients together, as if they were
+    concatenated into a single vector. Gradients are modified in-place.
+
+    Args:
+        parameters (Iterable[Tensor] or Tensor): an iterable of Tensors or a
+            single Tensor that will have gradients normalized
+        norm_type (float): type of the used p-norm. Can be ``'inf'`` for
+            infinity norm.
+        foreach (bool): use the faster foreach-based implementation.
+            If ``None``, use the foreach implementation for CUDA and CPU native tensors and silently
+            falle total norm of order {norm_type} for gradients from '
+            '`parameters` is non-finite, so it cannot be clipped. To disable '
+            'this error and scale the gradients by the non-finite norm anyway, '
+            'set `error_if_nonfinite=False`')
+
+    Returns:
+        Total norm of the parameter gradients (viewed as a single vector).
+    """
+    if isinstance(parameters, torch.Tensor):
+        parameters = [parameters]
+    grads = [p.grad for p in parameters if p.grad is not None]
+    norm_type = float(norm_type)
+    if len(grads) == 0:
+        return torch.tensor(0.)
+    first_device = grads[0].device
+    grouped_grads: Dict[Tuple[torch.device, torch.dtype], Tuple[List[List[Tensor]], List[int]]] \
+        = _group_tensors_by_device_and_dtype([grads])  # type: ignore[assignment]
+
+    norms: List[Tensor] = []
+    for ((device, _), ([device_grads], _)) in grouped_grads.items():  # type: ignore[assignment]
+        if (
+            (foreach is None and _has_foreach_support(device_grads, device))
+            or (foreach and _device_has_foreach_support(device))
+        ):
+            norms.extend(torch._foreach_norm(device_grads, norm_type))
+        elif foreach:
+            raise RuntimeError(f'foreach=True was passed, but can\'t use the foreach API on {device.type} tensors')
+        else:
+            norms.extend([torch.linalg.vector_norm(g, norm_type) for g in device_grads])
+
+    return torch.linalg.vector_norm(torch.stack([norm.to(first_device) for norm in norms]), norm_type)
 
 class EMAGradClipCallback(Callback):
     """
@@ -185,8 +234,73 @@ class EMAGradClipCallback(Callback):
                 self.trainer.fabric.log("grad_clip/ema_grad_norm_2",self._current_ema2,step=self.trainer.global_step)
                 self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
                 self.trainer.fabric.log("grad_clip/real_grad_norm",norm,step=self.trainer.global_step)
+
+    def load_state_dict(self, state_dict):
+        ori_state=self.state_dict()
+        ori_state.update(state_dict)
+        self._grad_norm_ema1=ori_state["_grad_norm_ema1"]
+        self._grad_norm_ema2=ori_state["_grad_norm_ema2"]
+        self.ema_index=ori_state["ema_index"]
+
+    def state_dict(self):
+        return {
+            "_grad_norm_ema1":self._grad_norm_ema1,
+            "_grad_norm_ema2":self._grad_norm_ema2,
+            "ema_index":self.ema_index
+        }
+
+class EpochSTDGradClipCallback(Callback):
+    
+    def __init__(self, 
+                 clip_ratio:3,
+                 log_clip_info:bool=True,) -> None:
+        super().__init__()
+        self._clip_ratio=clip_ratio
+        self._grad_norms=[]
+        self._recorded_epoch=1
+        self._std=None
+        self._mean=None
+        self.log_clip_info=log_clip_info
+    
+    def state_dict(self):
+        return {
+            "_grad_norms":self._grad_norms,
+            "_recorded_epoch":self._recorded_epoch,
+            "_std":self._std,
+            "_mean":self._mean
+        }
         
-class ConstantGradClip(Callback):
+    def load_state_dict(self, state_dict):
+        ori_state=self.state_dict()
+        ori_state.update(state_dict)
+        self._grad_norms=ori_state["_grad_norms"]
+        self._recorded_epoch=ori_state["_recorded_epoch"]
+        self._std=ori_state["_std"]
+        self._mean=ori_state["_mean"]
+        
+        
+    def on_before_optimizer_step(self):
+        if self.trainer.current_epoch!=self._recorded_epoch:
+            self._mean=np.mean(self._grad_norms)
+            self._std=np.std(self._grad_norms)
+            self._grad_norms=[]
+        if self._mean is None:
+            total_norm=_grad_norm(self.trainer.model.parameters())
+            clipped=False
+        else:
+            total_norm, clipped=_clip_grad_norm(self.trainer.model.parameters(), 
+                        max_norm=self._mean+self._clip_ratio*self._std,
+                        clip_norm=self._mean)
+        self._grad_norms.append(total_norm)
+        if self.log_clip_info:
+            self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
+            self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
+            norm=self._mean if clipped else total_norm
+            self.trainer.fabric.log("grad_clip/real_grad_norm",norm,step=self.trainer.global_step)
+            self.trainer.fabric.log("grad_clip/mean_grad_norm",self._mean,step=self.trainer.global_step)
+            self.trainer.fabric.log("grad_clip/std_grad_norm",self._std,step=self.trainer.global_step)
+        
+class ConstantGradClipCallback(Callback):
     
     def __init__(self,
                  max_norm:int=1.0,

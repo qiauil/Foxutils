@@ -61,6 +61,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         self.callbacks = [self]
         self.postprocessors = []
         self.fabric_plugins = []
+        self.state = {}
         self.configure_config_save_mode()
 
     def info(self, msg):
@@ -311,10 +312,12 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         self.model, self.optimizer = self.fabric.setup(self._compile_model(model), optimizer)
         self.optimizer.zero_grad()
         # read checkpoint
-        self.state=dict(
-            model=self.model,
-            optimizer=self.optimizer,
-            lr_scheduler=self.lr_scheduler,
+        self.state.update(
+            dict(
+                model=self.model,
+                optimizer=self.optimizer,
+                lr_scheduler=self.lr_scheduler,
+            )
         )
         self.fabric.call("on_state_register", self.state)
         if self.ckpt_path:
@@ -450,6 +453,8 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
             callbacks = [callbacks]
         for callback in callbacks:
             callback.register_trainer(self)
+            if hasattr(callback,"state_dict"):
+                self.state.update({callback.__class__.__name__:callback})
         self.callbacks.extend(callbacks)
 
     def add_fabric_plugins(self,
