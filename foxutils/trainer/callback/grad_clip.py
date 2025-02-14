@@ -252,8 +252,15 @@ class EMAGradClipCallback(Callback):
 class EpochSTDGradClipCallback(Callback):
     
     def __init__(self, 
-                 clip_ratio:3,
+                 clip_ratio:float=1.0,
                  log_clip_info:bool=True,) -> None:
+        """
+        Gradient clipping based on epoch standard deviation
+        
+        Args:
+            clip_ratio: ratio for gradient clipping
+            log_clip_info: whether to log the clip info
+        """    
         super().__init__()
         self._clip_ratio=clip_ratio
         self._grad_norms=[]
@@ -281,6 +288,7 @@ class EpochSTDGradClipCallback(Callback):
         
     def on_before_optimizer_step(self):
         if self.trainer.current_epoch!=self._recorded_epoch:
+            self._recorded_epoch=self.trainer.current_epoch
             self._mean=np.mean(self._grad_norms)
             self._std=np.std(self._grad_norms)
             self._grad_norms=[]
@@ -291,14 +299,16 @@ class EpochSTDGradClipCallback(Callback):
             total_norm, clipped=_clip_grad_norm(self.trainer.model.parameters(), 
                         max_norm=self._mean+self._clip_ratio*self._std,
                         clip_norm=self._mean)
+        total_norm=total_norm.item()
         self._grad_norms.append(total_norm)
         if self.log_clip_info:
             self.trainer.fabric.log("grad_clip/ori_grad_norm",total_norm,step=self.trainer.global_step)
             self.trainer.fabric.log("grad_clip/is_clipped",int(clipped),step=self.trainer.global_step)
             norm=self._mean if clipped else total_norm
             self.trainer.fabric.log("grad_clip/real_grad_norm",norm,step=self.trainer.global_step)
-            self.trainer.fabric.log("grad_clip/mean_grad_norm",self._mean,step=self.trainer.global_step)
-            self.trainer.fabric.log("grad_clip/std_grad_norm",self._std,step=self.trainer.global_step)
+            if self._std is not None:
+                self.trainer.fabric.log("grad_clip/mean_grad_norm",self._mean,step=self.trainer.global_step)
+                self.trainer.fabric.log("grad_clip/std_grad_norm",self._std,step=self.trainer.global_step)
         
 class ConstantGradClipCallback(Callback):
     
