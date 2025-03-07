@@ -42,3 +42,11 @@ class PostProcessor:
         else:
             if fabric.local_rank==0:
                 torch.save(data,file_path)
+                
+    @property
+    def is_rank_zero(self,
+                      fabric:Optional[Fabric]=None)->bool:
+        if fabric is None:
+            return True
+        else:
+            return fabric.local_rank==0
