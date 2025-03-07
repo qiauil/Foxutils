@@ -37,7 +37,8 @@ class TrainedVersion:
                  project_path:str,
                  run_name:str,
                  version:str,
-                 device:Union[Literal["auto","config"],Sequence]="auto") -> None:
+                 device:Union[Literal["auto","config"],Sequence]="auto",
+                 check_configs=True) -> None:
         self.project_path = project_path
         self.run_name = run_name
         self.version = version
@@ -53,7 +54,7 @@ class TrainedVersion:
         self._fabric=None
         self._logger=None
         self._device=device
-        if not os.path.exists(self.config_dir):
+        if check_configs and not os.path.exists(self.config_dir):
             raise FileNotFoundError(f"Configuration file not found at {self.config_dir}. Not a valid trained version.")
         
     @property 
