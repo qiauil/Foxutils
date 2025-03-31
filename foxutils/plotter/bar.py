@@ -114,13 +114,3 @@ def compare_errors(datas, labels, x_items, std=None, title=None, basic_size=1, y
     else:
         plt.show()
         
-    
-compare_errors(
-    [
-        [1,10,3],
-        [4,5,6]
-    ],
-    labels=['a','b'],
-    x_items=['x1','x2','x3'],
-    ordered=True,
-)
