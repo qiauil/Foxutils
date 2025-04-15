@@ -7,8 +7,8 @@ from . import *
 from typing import Sequence,Optional,Sequence
 import cycler
 
-COOL=mlp.cm.get_cmap("coolwarm")(np.linspace(0, 0.5, 5))
-HOT=mlp.cm.get_cmap("coolwarm")(np.linspace(0.5, 1, 5))
+COOL=mlp.colormaps.get_cmap("coolwarm")(np.linspace(0, 0.5, 5))
+HOT=mlp.colormaps.get_cmap("coolwarm")(np.linspace(0.5, 1, 5))
 WHITE=[[1,1,1,1]]
 
 CMAP_COOL=colors.LinearSegmentedColormap.from_list("COOL",np.vstack((COOL[0:-1],WHITE)))

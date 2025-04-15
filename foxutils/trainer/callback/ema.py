@@ -25,7 +25,7 @@ class EMAWeightsCallback(Callback):
     def __init__(self, 
                  ema_coef: float = 0.9,
                  ema_weights_update_freq: int = 1,
-                 ema_weights_update: bool = True,
+                 ema_validation: bool = True,
                  ) -> None:
         """
         Update the EMA weights of the model during training.
@@ -33,12 +33,12 @@ class EMAWeightsCallback(Callback):
         Args:
             ema_coef (float): The coefficient for the EMA update. Default: 0.9
             ema_weights_update_freq (int): The frequency of EMA weight update. Default: 1
-            do_ema_validation (bool): Whether to perform additional validation after EMA weight update. Default: True
+            ema_validation (bool): Whether to perform additional validation after EMA weight update. Default: True
         """
         super().__init__()
         self.ema_coef = ema_coef
         self.ema_weights_update_freq = ema_weights_update_freq
-        self.do_ema_validation = False
+        self.ema_validation = ema_validation
         self.ema_params = ()
         self.ema_step = 0
         self.stream = None
@@ -136,7 +136,7 @@ class EMAWeightsCallback(Callback):
             self.update()
     
     def on_validation_epoch_end(self, epoch_idx: int):
-        if self.do_ema_validation:
+        if self.ema_validation:
             self.join()
             with self.swap_ema_weights():
                 self.trainer.validation_loop(loss_tag="losses/ema_validation_epoch",

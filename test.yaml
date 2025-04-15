@@ -1,0 +1,6 @@
+project: icml_downstream_tasks_emaclip
+name: fasterdit-v1-periodicoff_${runtime.dataset_name}-${runtime.seed}
+
+runtime:
+  dataset_name: 'rbc'
+  seed: 21339

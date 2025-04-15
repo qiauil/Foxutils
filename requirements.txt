@@ -1,5 +1,5 @@
 lightning
-matplotlib
+matplotlib>=3.10
 PyYAML
 einops
 tqdm
