@@ -245,6 +245,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
         return model    
 
     def _call_postprocessors(self):
+        self._set_random_seed(self.configs.random_seed)
         p_bar=self.rank_zero_tqdm(self.postprocessors,desc="Postprocessing")
         for postprocessor in p_bar:
             if isinstance(p_bar,tqdm):
@@ -261,7 +262,7 @@ class Trainer(TrainConfigMixin,CallbackMixin,ProgressBarMixin):
                                              self.fabric)
 
     def _set_random_seed(self,seed:int):
-        seed_everything(self.configs.random_seed,verbose=False,workers=True)
+        seed_everything(seed,verbose=False,workers=True)
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
