@@ -224,7 +224,7 @@ class TrainedVersion:
                     ckpt_path=os.path.join(self.run_dir,ckpt_name)
                 if not os.path.exists(ckpt_path):
                     raise FileNotFoundError(f"Checkpoint {ckpt_name} not found in {self.ckpt_dir} or {self.run_dir}")
-                model=self.fabric.load(ckpt_path,{"model":model})
+                self.fabric.load(ckpt_path,{"model":model})
                 model=self.fabric.setup(model)
             else:
                 model=fabric.setup(self.final_network)
