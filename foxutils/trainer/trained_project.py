@@ -219,7 +219,12 @@ class TrainedVersion:
             enmu.set_description(f"Running postprocessor: {processor.processor_name}")
             if ckpt_name is not None:
                 model=self.network_structure
-                model=self.fabric.load(os.path.join(self.ckpt_dir,ckpt_name),{"model":model})
+                ckpt_path=os.path.join(self.ckpt_dir,ckpt_name)
+                if not os.path.exists(ckpt_path):
+                    ckpt_path=os.path.join(self.run_dir,ckpt_name)
+                if not os.path.exists(ckpt_path):
+                    raise FileNotFoundError(f"Checkpoint {ckpt_name} not found in {self.ckpt_dir} or {self.run_dir}")
+                model=self.fabric.load(ckpt_path,{"model":model})
                 model=self.fabric.setup(model)
             else:
                 model=fabric.setup(self.final_network)
